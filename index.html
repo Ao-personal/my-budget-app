@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -28,12 +28,23 @@
             loading: true
         };
 
-        // 初始化驗證
+        // 初始化驗證 (依照 RULE 3)
         const initAuth = async () => {
             try {
-                await signInAnonymously(auth);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
             } catch (err) {
                 console.error("Auth failed", err);
+                // 如果驗證失敗，5秒後強行解除載入狀態，讓用戶至少能看到介面
+                setTimeout(() => {
+                    if (window.state.loading) {
+                        window.state.loading = false;
+                        window.updateUI();
+                    }
+                }, 5000);
             }
         };
 
@@ -48,7 +59,8 @@
         function setupRealtimeSync(uid) {
             const userDoc = doc(db, 'artifacts', appId, 'users', uid, 'data', 'mainState');
             
-            onSnapshot(userDoc, (docSnap) => {
+            // 使用 onSnapshot 並加入錯誤處理
+            const unsubscribe = onSnapshot(userDoc, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.state.records = data.records || [];
@@ -62,6 +74,7 @@
             }, (error) => {
                 console.error("Sync error:", error);
                 window.state.loading = false;
+                window.updateUI(); // 即使出錯也嘗試更新 UI 顯示
             });
         }
 
@@ -144,7 +157,10 @@
 </head>
 <body class="p-4 md:p-8">
     <div id="loading" class="loading-overlay">
-        <div class="text-stone-400 animate-pulse">連線中...</div>
+        <div class="flex flex-col items-center gap-4">
+            <div class="text-stone-400 animate-pulse font-medium">資料同步中...</div>
+            <button onclick="document.getElementById('loading').classList.add('hidden')" class="text-[10px] text-stone-300 underline">等太久了？直接進入</button>
+        </div>
     </div>
 
     <div class="max-w-6xl mx-auto">
@@ -342,7 +358,7 @@
 
             // 帳戶渲染
             const accCont = document.getElementById('accounts-container');
-            accCont.innerHTML = window.state.accounts.map(a => `
+            accCont.innerHTML = (window.state.accounts || []).map(a => `
                 <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 relative group">
                     <button onclick="deleteAccount(${a.id})" class="absolute top-2 right-2 text-stone-200 opacity-0 group-hover:opacity-100 hover:text-red-400 transition">✕</button>
                     <div class="text-[9px] text-stone-400 font-bold uppercase mb-1">${a.name}</div>
@@ -350,27 +366,27 @@
                 </div>
             `).join('');
             
-            document.getElementById('total-assets').innerText = `$${window.state.accounts.reduce((s, a) => s + a.balance, 0).toLocaleString()}`;
+            document.getElementById('total-assets').innerText = `$${(window.state.accounts || []).reduce((s, a) => s + a.balance, 0).toLocaleString()}`;
 
             // 固定支出渲染
-            document.getElementById('fixed-expenses-list').innerHTML = window.state.fixedExpenses.map(f => `
+            document.getElementById('fixed-expenses-list').innerHTML = (window.state.fixedExpenses || []).map(f => `
                 <span class="bg-stone-100 text-stone-500 text-[10px] px-2 py-1 rounded-md flex items-center gap-1 border border-stone-200">
                     ${f.name} $${f.amount} <button onclick="removeFixedExpense(${f.id})" class="hover:text-red-400 font-bold">×</button>
                 </span>
             `).join('');
             document.getElementById('fixed-exp-total-label').innerText = `總計固定支出: $${fixedTotal.toLocaleString()}`;
 
-            const accOptions = window.state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+            const accOptions = (window.state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
             document.getElementById('exp-account').innerHTML = accOptions;
             document.getElementById('inc-account').innerHTML = accOptions;
 
             // 統計各類支出
             const totals = {
-                NEC: window.state.records.filter(r => r.type === 'expense' && r.category === 'NEC').reduce((s, r) => s + r.amount, 0),
-                FFA: window.state.records.filter(r => r.type === 'expense' && r.category === 'FFA').reduce((s, r) => s + r.amount, 0),
-                LTSS: window.state.records.filter(r => r.type === 'expense' && r.category === 'LTSS').reduce((s, r) => s + r.amount, 0),
-                INT: window.state.records.filter(r => r.type === 'expense' && r.category === 'INT').reduce((s, r) => s + r.amount, 0),
-                PLAY: window.state.records.filter(r => r.type === 'expense' && r.category === 'PLAY').reduce((s, r) => s + r.amount, 0)
+                NEC: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'NEC').reduce((s, r) => s + r.amount, 0),
+                FFA: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'FFA').reduce((s, r) => s + r.amount, 0),
+                LTSS: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'LTSS').reduce((s, r) => s + r.amount, 0),
+                INT: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'INT').reduce((s, r) => s + r.amount, 0),
+                PLAY: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'PLAY').reduce((s, r) => s + r.amount, 0)
             };
 
             const remainingForJar = window.state.salary - window.state.savingsGoal;
@@ -404,7 +420,8 @@
         function addRecord(type) {
             const name = document.getElementById(type === 'expense' ? 'exp-name' : 'inc-name').value.trim();
             const amount = parseFloat(document.getElementById(type === 'expense' ? 'exp-amount' : 'inc-amount').value) || 0;
-            const accId = parseInt(document.getElementById(type === 'expense' ? 'exp-account' : 'inc-account').value);
+            const accIdString = document.getElementById(type === 'expense' ? 'exp-account' : 'inc-account').value;
+            const accId = parseInt(accIdString);
 
             if (amount <= 0 || isNaN(accId)) return;
 
@@ -434,7 +451,7 @@
 
         function renderRecords() {
             const list = document.getElementById('record-list');
-            if (window.state.records.length === 0) { list.innerHTML = `<div class="text-center py-20 text-stone-200 text-xs">尚無紀錄</div>`; return; }
+            if (!window.state.records || window.state.records.length === 0) { list.innerHTML = `<div class="text-center py-20 text-stone-200 text-xs">尚無紀錄</div>`; return; }
             list.innerHTML = window.state.records.map(r => `
                 <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 group">
                     <div class="flex flex-col">
