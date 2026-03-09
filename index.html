@@ -70,6 +70,12 @@
         .tab-btn {
             transition: all 0.2s;
         }
+        .stat-card {
+            background: #fdfcfb;
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid #f1ece7;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -93,7 +99,7 @@
 
     <!-- 主程式內容 -->
     <div id="main-app" class="max-w-6xl mx-auto locked-content">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <header class="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
             <div>
                 <h1 class="text-2xl font-bold tracking-widest text-stone-700">理財記帳簿</h1>
                 <div id="sync-status" class="hidden mt-1"><span class="syncing-dot"></span> <span class="text-[10px] text-stone-300">同步中...</span></div>
@@ -188,9 +194,10 @@
                 <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm h-full flex flex-col">
                     <!-- Tab 切換 -->
                     <div class="flex mb-6 border-b border-stone-100">
-                        <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn flex-1 py-2 text-xs font-bold border-b-2 border-[#b8a390]">日常支出</button>
-                        <button onclick="switchTab('income')" id="tab-income" class="tab-btn flex-1 py-2 text-xs font-bold text-stone-300">收入</button>
-                        <button onclick="switchTab('trip')" id="tab-trip" class="tab-btn flex-1 py-2 text-xs font-bold text-stone-300">旅行記帳</button>
+                        <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn flex-1 py-2 text-[11px] font-bold border-b-2 border-[#b8a390]">支出</button>
+                        <button onclick="switchTab('income')" id="tab-income" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">收入</button>
+                        <button onclick="switchTab('trip')" id="tab-trip" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">旅行</button>
+                        <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">統計</button>
                     </div>
                     
                     <!-- 支出表單 -->
@@ -215,6 +222,7 @@
                         </select>
                         <input type="number" id="exp-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">
                         <button onclick="addRecord('expense')" class="w-full milktea-gradient text-white py-3 rounded-xl font-bold">新增紀錄</button>
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-expense"></div>
                     </div>
 
                     <!-- 收入表單 -->
@@ -225,6 +233,7 @@
                             <select id="inc-account" class="w-full p-3 input-style text-[11px]"></select>
                         </div>
                         <button onclick="addRecord('income')" class="w-full milktea-gradient-green text-white py-3 rounded-xl font-bold">新增收入</button>
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-income"></div>
                     </div>
 
                     <!-- 旅行記帳表單 -->
@@ -246,7 +255,33 @@
                         <button onclick="addTripRecord()" class="w-full milktea-gradient-brown text-[#5d5245] py-3 rounded-xl font-bold">新增旅行紀錄</button>
                     </div>
 
-                    <div class="flex-grow overflow-y-auto max-h-[450px] space-y-2 pr-1" id="record-list"></div>
+                    <!-- 統計概況分頁 -->
+                    <div id="form-stats" class="space-y-4 hidden h-full overflow-y-auto pr-1">
+                        <h4 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">本月收支統計</h4>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="stat-card">
+                                <div class="text-[10px] text-stone-400 mb-1">總收入 (含薪水)</div>
+                                <div class="text-lg font-bold text-green-600" id="stat-total-income">$0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="text-[10px] text-stone-400 mb-1">總支出 (含固定/旅行)</div>
+                                <div class="text-lg font-bold text-red-400" id="stat-total-expense">$0</div>
+                            </div>
+                            <div class="stat-card" id="stat-budget-card">
+                                <div class="text-[10px] text-stone-400 mb-1">預算剩餘/超支</div>
+                                <div class="text-lg font-bold" id="stat-budget-diff">$0</div>
+                                <div class="w-full bg-stone-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                    <div id="stat-progress-bar" class="milktea-gradient h-full" style="width: 0%"></div>
+                                </div>
+                                <div class="text-[9px] text-stone-400 mt-1" id="stat-progress-text">預算達成率: 0%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-stone-50">
+                            <h5 class="text-[10px] font-bold text-stone-400 uppercase mb-3">支出構成比</h5>
+                            <div class="space-y-2 text-[11px]" id="stat-category-breakdown"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -536,14 +571,30 @@
             const balances = {};
             window.state.accounts.forEach(a => balances[a.name] = a.balance);
             
+            let totalIncomeTWD = window.state.settings.salary || 0;
+            let totalExpenseTWD = 0;
+
             window.state.records.forEach(r => {
+                const currency = curMap[r.accountName];
+                const amtTWD = currency === 'USD' ? r.amount * rate : r.amount;
+                
                 if (balances.hasOwnProperty(r.accountName)) {
-                    if (r.type === 'income') balances[r.accountName] += r.amount;
-                    else balances[r.accountName] -= r.amount;
+                    if (r.type === 'income') {
+                        balances[r.accountName] += r.amount;
+                        totalIncomeTWD += amtTWD;
+                    } else {
+                        balances[r.accountName] -= r.amount;
+                        totalExpenseTWD += amtTWD;
+                    }
                 }
             });
 
+            let totalFixedTWD = 0;
             window.state.fixedExpenses.forEach(f => {
+                const currency = curMap[f.accountName];
+                const amtTWD = currency === 'USD' ? f.amount * rate : f.amount;
+                totalFixedTWD += amtTWD;
+                totalExpenseTWD += amtTWD;
                 if (balances.hasOwnProperty(f.accountName)) balances[f.accountName] -= f.amount;
             });
 
@@ -552,6 +603,7 @@
                 const currency = curMap[t.accountName];
                 const amtTWD = currency === 'USD' ? t.amount * rate : t.amount;
                 totalTripTWD += amtTWD;
+                totalExpenseTWD += amtTWD;
                 if (balances.hasOwnProperty(t.accountName)) {
                     balances[t.accountName] -= t.amount;
                 }
@@ -573,11 +625,8 @@
             }).join('');
             document.getElementById('total-assets').innerText = `$${Math.round(totalAssetsTWD).toLocaleString()}`;
 
-            let totalFixedTWD = 0;
             document.getElementById('fixed-expenses-list').innerHTML = window.state.fixedExpenses.map(f => {
                 const currency = curMap[f.accountName];
-                const amtTWD = currency === 'USD' ? f.amount * rate : f.amount;
-                totalFixedTWD += amtTWD;
                 return `
                     <div class="flex justify-between items-center bg-stone-50 p-2 rounded-lg text-[10px]">
                         <span class="text-stone-600 font-medium">${f.name}</span>
@@ -624,6 +673,9 @@
             }).join('');
             document.getElementById('monthly-total').innerText = `$${Math.round(consumable).toLocaleString()}`;
 
+            // 更新統計分頁
+            updateStatsUI(totalIncomeTWD, totalExpenseTWD, salary, savings, totalsTWD, totalFixedTWD, totalTripTWD);
+
             const tripList = document.getElementById('trip-records-list');
             if (window.state.tripRecords.length > 0) {
                 tripList.innerHTML = window.state.tripRecords.map(t => `
@@ -649,8 +701,7 @@
             document.getElementById('trip-item-account').innerHTML = accOptions;
             document.getElementById('fixed-exp-account').innerHTML = window.state.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
 
-            const list = document.getElementById('record-list');
-            list.innerHTML = window.state.records.map(r => `
+            const renderRec = (r) => `
                 <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 relative">
                     <div class="flex flex-col gap-1">
                         <div class="flex items-center gap-2">
@@ -664,6 +715,49 @@
                         <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400 text-[10px]">✕</button>
                     </div>
                 </div>
+            `;
+            
+            document.getElementById('record-list-expense').innerHTML = window.state.records.filter(r=>r.type==='expense').map(renderRec).join('');
+            document.getElementById('record-list-income').innerHTML = window.state.records.filter(r=>r.type==='income').map(renderRec).join('');
+        }
+
+        function updateStatsUI(totalInc, totalExp, salary, savings, catTotals, fixed, trip) {
+            document.getElementById('stat-total-income').innerText = `$${Math.round(totalInc).toLocaleString()}`;
+            document.getElementById('stat-total-expense').innerText = `$${Math.round(totalExp).toLocaleString()}`;
+            
+            // 預算邏輯：月薪 - 儲蓄目標 = 可支出額度
+            const budgetLimit = salary - savings;
+            const diff = budgetLimit - (totalExp - trip); // 旅行支出通常不列入日常預算計畫，故排除後比較
+            
+            const diffEl = document.getElementById('stat-budget-diff');
+            diffEl.innerText = (diff >= 0 ? '剩餘 ' : '超支 ') + `$${Math.abs(Math.round(diff)).toLocaleString()}`;
+            diffEl.className = `text-lg font-bold ${diff >= 0 ? 'text-stone-700' : 'text-red-500'}`;
+
+            const percent = budgetLimit > 0 ? Math.min(100, Math.max(0, ((totalExp - trip) / budgetLimit) * 100)) : 0;
+            document.getElementById('stat-progress-bar').style.width = `${percent}%`;
+            document.getElementById('stat-progress-text').innerText = `預算使用率: ${Math.round(percent)}%`;
+            if (percent > 90) document.getElementById('stat-progress-bar').className = 'bg-red-400 h-full';
+            else document.getElementById('stat-progress-bar').className = 'milktea-gradient h-full';
+
+            // 支出佔比
+            const total = totalExp || 1;
+            const breakdown = [
+                { label: '必要/固定', val: catTotals.NEC + fixed },
+                { label: '財務/長期', val: catTotals.FFA + catTotals.LTSS },
+                { label: '生活享樂', val: catTotals.INT + catTotals.PLAY },
+                { label: '旅行支出', val: trip }
+            ];
+
+            document.getElementById('stat-category-breakdown').innerHTML = breakdown.map(b => `
+                <div class="flex flex-col gap-1">
+                    <div class="flex justify-between items-center">
+                        <span>${b.label}</span>
+                        <span class="text-stone-400">$${Math.round(b.val).toLocaleString()} (${Math.round(b.val/total*100)}%)</span>
+                    </div>
+                    <div class="w-full bg-stone-50 h-1 rounded-full overflow-hidden">
+                        <div class="bg-stone-300 h-full" style="width: ${b.val/total*100}%"></div>
+                    </div>
+                </div>
             `).join('');
         }
 
@@ -671,8 +765,9 @@
             document.getElementById('form-expense').classList.toggle('hidden', tab !== 'expense');
             document.getElementById('form-income').classList.toggle('hidden', tab !== 'income');
             document.getElementById('form-trip').classList.toggle('hidden', tab !== 'trip');
+            document.getElementById('form-stats').classList.toggle('hidden', tab !== 'stats');
             
-            ['expense', 'income', 'trip'].forEach(t => {
+            ['expense', 'income', 'trip', 'stats'].forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 if (t === tab) {
                     btn.classList.add('border-b-2', 'border-[#b8a390]', 'text-stone-600');
