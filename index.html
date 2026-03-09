@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>理財記帳簿 - Sheets 同步</title>
+    <title>理財記帳簿 - 自動同步</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -21,10 +21,6 @@
         .jar-card {
             transition: all 0.3s ease;
             border: 1px solid #e5ddd3;
-        }
-        .jar-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 20px -5px rgba(184, 163, 144, 0.2);
         }
         .input-style {
             background-color: #f3ede6;
@@ -45,6 +41,19 @@
             border-bottom: 2px solid #b8a390;
             color: #b8a390;
         }
+        /* 載入動畫 */
+        .syncing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #b8a390;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -52,24 +61,27 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <div class="text-center md:text-left">
                 <h1 class="text-2xl font-bold tracking-widest text-stone-700 mb-1">理財記帳簿</h1>
-                <p class="text-stone-400 text-sm italic">Google Sheets 雲端連線模式</p>
+                <div class="flex items-center gap-2 justify-center md:justify-start">
+                    <p class="text-stone-400 text-sm italic">Google Sheets 雲端模式</p>
+                    <div id="sync-status" class="hidden"><span class="syncing-dot"></span></div>
+                </div>
             </div>
             
-            <!-- Google Sheets 設定區 -->
             <div class="flex flex-col gap-2 bg-white p-4 rounded-2xl shadow-sm border border-stone-100 w-full md:w-auto">
                 <div class="flex gap-2">
-                    <input type="text" id="script-url" placeholder="貼上 Google Script Web App URL" class="text-[10px] p-2 input-style w-full md:w-80">
-                    <button onclick="syncWithSheets()" id="sync-btn" class="text-[10px] milktea-gradient text-white px-4 py-2 rounded-xl font-bold hover:brightness-105 transition whitespace-nowrap">同步雲端資料</button>
+                    <input type="text" id="script-url" placeholder="貼上 Google Script Web App URL" class="text-[10px] p-2 input-style w-full md:w-80" onchange="saveData()">
+                    <button onclick="syncWithSheets(true)" id="sync-btn" class="text-[10px] milktea-gradient text-white px-4 py-2 rounded-xl font-bold hover:brightness-105 transition whitespace-nowrap">同步雲端</button>
                 </div>
-                <p class="text-[9px] text-stone-400">* 請先部署 Google Apps Script 並取得 Web App 網址</p>
+                <div class="flex justify-between items-center">
+                    <p class="text-[9px] text-stone-400">已啟用自動每 30 秒檢查更新</p>
+                    <button onclick="clearAllData()" class="text-[9px] text-red-300 hover:text-red-500 underline">清除本地快取</button>
+                </div>
             </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <!-- 左側：設定與看板 -->
             <div class="lg:col-span-8">
-                <!-- 帳戶資產總覽 -->
+                <!-- 帳戶資產 -->
                 <div class="bg-white rounded-2xl p-6 mb-6 border border-stone-100 shadow-sm">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">帳戶資產管理</h3>
@@ -82,7 +94,7 @@
                     </div>
                 </div>
 
-                <!-- 預算基準與儲蓄設定 -->
+                <!-- 預算設定 -->
                 <div class="bg-white rounded-2xl p-6 mb-6 border border-stone-100 shadow-sm">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -96,17 +108,17 @@
                     </div>
                 </div>
 
-                <!-- 五罐子分配顯示 -->
+                <!-- 五罐子 -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8" id="jars-container"></div>
 
-                <!-- 大看板 -->
+                <!-- 總預算看板 -->
                 <div class="milktea-gradient text-white rounded-3xl p-10 shadow-lg text-center">
-                    <h2 class="text-sm font-medium opacity-80 mb-3 tracking-widest uppercase">本月剩餘可動用金額 (不含儲蓄)</h2>
+                    <h2 class="text-sm font-medium opacity-80 mb-3 tracking-widest uppercase">本月剩餘可動用金額</h2>
                     <div class="text-7xl font-black tracking-tighter" id="monthly-total">$0</div>
                 </div>
             </div>
 
-            <!-- 右側：記帳區 -->
+            <!-- 記帳表單 -->
             <div class="lg:col-span-4">
                 <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm h-full flex flex-col">
                     <div class="flex mb-6 border-b border-stone-100">
@@ -115,7 +127,7 @@
                     </div>
                     
                     <div id="form-expense" class="space-y-3 mb-6">
-                        <input type="text" id="exp-name" placeholder="項目" class="w-full p-3 input-style text-sm">
+                        <input type="text" id="exp-name" placeholder="消費項目" class="w-full p-3 input-style text-sm">
                         <div class="grid grid-cols-2 gap-2">
                             <select id="exp-category" class="w-full p-3 input-style text-[11px]">
                                 <option value="NEC">生活必要 (55%)</option>
@@ -131,7 +143,7 @@
                     </div>
 
                     <div id="form-income" class="space-y-3 mb-6 hidden">
-                        <input type="text" id="inc-name" placeholder="來源" class="w-full p-3 input-style text-sm">
+                        <input type="text" id="inc-name" placeholder="收入來源" class="w-full p-3 input-style text-sm">
                         <div class="grid grid-cols-2 gap-2">
                             <input type="number" id="inc-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">
                             <select id="inc-account" class="w-full p-3 input-style text-[11px]"></select>
@@ -145,13 +157,13 @@
         </div>
     </div>
 
-    <!-- Modal: 新增帳戶 -->
+    <!-- 帳戶 Modal -->
     <div id="account-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
             <h3 class="text-lg font-bold text-stone-700 mb-6">新增帳戶</h3>
             <div class="space-y-4">
-                <input type="text" id="new-acc-name" placeholder="帳戶名稱" class="w-full p-3 input-style">
-                <input type="number" id="new-acc-balance" placeholder="當前餘額" class="w-full p-3 input-style">
+                <input type="text" id="new-acc-name" placeholder="例如：現金、國泰、台新" class="w-full p-3 input-style">
+                <input type="number" id="new-acc-balance" placeholder="目前的餘額" class="w-full p-3 input-style">
                 <div class="flex gap-2 pt-4">
                     <button onclick="toggleModal('account-modal')" class="flex-1 py-3 text-stone-400 font-bold">取消</button>
                     <button onclick="addAccount()" class="flex-1 milktea-gradient text-white py-3 rounded-xl font-bold">確認</button>
@@ -161,89 +173,94 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'BUDGET_PLANNER_SHEETS_DATA';
+        const STORAGE_KEY = 'BUDGET_SYNC_PRO_DATA';
         
         window.state = {
             records: [],
             accounts: [],
             salary: 40000,
             savingsGoal: 10000,
-            scriptUrl: ''
+            scriptUrl: '',
+            lastSyncTime: 0
         };
 
-        // 讀取 LocalStorage (本地快取)
+        // 啟動流程
+        window.onload = function() {
+            loadLocalData();
+            if (window.state.scriptUrl) {
+                syncWithSheets(false); // 靜默同步
+            }
+            // 每 30 秒自動檢查一次
+            setInterval(() => {
+                if (window.state.scriptUrl) syncWithSheets(false);
+            }, 30000);
+        };
+
         function loadLocalData() {
-            const savedData = localStorage.getItem(STORAGE_KEY);
-            if (savedData) {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
                 try {
-                    const parsed = JSON.parse(savedData);
-                    window.state = { ...window.state, ...parsed };
+                    window.state = JSON.parse(saved);
                     document.getElementById('script-url').value = window.state.scriptUrl || '';
                 } catch (e) { console.error(e); }
             }
             updateUI();
         }
 
-        // 儲存至 LocalStorage
         function saveData() {
-            window.state.scriptUrl = document.getElementById('script-url').value;
+            window.state.scriptUrl = document.getElementById('script-url').value.trim();
             localStorage.setItem(STORAGE_KEY, JSON.stringify(window.state));
             updateUI();
         }
 
-        // Google Sheets 同步邏輯 (透過 Apps Script)
-        async function syncWithSheets() {
-            const scriptUrl = document.getElementById('script-url').value.trim();
-            if (!scriptUrl) {
-                alert("請先貼上 Google Apps Script 的 Web App 網址");
-                return;
+        function clearAllData() {
+            if(confirm("確定要清除所有本地快取資料嗎？（這不會刪除 Google Sheets 上的資料）")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
             }
+        }
 
-            const btn = document.getElementById('sync-btn');
-            btn.innerText = "同步中...";
-            btn.disabled = true;
+        // 同步核心邏輯
+        async function syncWithSheets(showNotify) {
+            const scriptUrl = window.state.scriptUrl;
+            if (!scriptUrl) return;
+
+            const statusEl = document.getElementById('sync-status');
+            statusEl.classList.remove('hidden');
             
             try {
-                // 嘗試從雲端抓取最新資料 (doGet)
                 const response = await fetch(scriptUrl);
                 const cloudData = await response.json();
                 
                 if (cloudData && Array.isArray(cloudData)) {
-                    // 簡單的合併邏輯：以雲端為主
+                    // 簡單衝突處理：雲端筆數多於本地時更新（或直接覆蓋確保多裝置同步）
                     window.state.records = cloudData;
-                    alert("同步成功！已從雲端下載最新紀錄。");
+                    if (showNotify) alert("同步成功！已獲取雲端最新紀錄。");
                     saveData();
                 }
             } catch (err) {
-                console.error(err);
-                alert("同步失敗，請檢查 Script URL 是否正確，且部署為「所有人」皆可存取。");
+                console.error("同步失敗", err);
+                if (showNotify) alert("同步失敗，請確認 Script URL 部署設定。");
             } finally {
-                btn.innerText = "同步雲端資料";
-                btn.disabled = false;
+                statusEl.classList.add('hidden');
             }
         }
 
-        // 新增紀錄時同步寫入 (doPost)
+        // 寫入邏輯
         async function pushToSheets(record) {
             const scriptUrl = window.state.scriptUrl;
             if (!scriptUrl) return;
-
             try {
                 await fetch(scriptUrl, {
                     method: 'POST',
-                    mode: 'no-cors', // 因為跨網域限制，doPost 通常用 no-cors
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'no-cors',
                     body: JSON.stringify(record)
                 });
-                console.log("雲端同步成功");
-            } catch (e) {
-                console.error("雲端同步失敗", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        function toggleModal(id) {
-            document.getElementById(id).classList.toggle('hidden');
-        }
+        // UI 與 互動邏輯
+        function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
 
         function switchTab(tab) {
             document.getElementById('tab-expense').className = `flex-1 py-2 text-sm font-bold ${tab === 'expense' ? 'tab-active' : 'text-stone-400'}`;
@@ -270,13 +287,6 @@
             }
         }
 
-        function deleteAccount(id) {
-            if (confirm('確定刪除帳戶？相關餘額調整將失效。')) {
-                window.state.accounts = window.state.accounts.filter(a => a.id !== id);
-                saveData();
-            }
-        }
-
         function addRecord(type) {
             const name = document.getElementById(type === 'expense' ? 'exp-name' : 'inc-name').value.trim();
             const amount = parseFloat(document.getElementById(type === 'expense' ? 'exp-amount' : 'inc-amount').value) || 0;
@@ -295,43 +305,30 @@
             const newRecord = {
                 id: Date.now(),
                 type,
-                name,
+                name: name || (type === 'expense' ? '未命名支出' : '未命名收入'),
                 amount,
                 category: cat,
                 categoryName: type === 'expense' ? catMap[cat] : '收入',
                 accountName: window.state.accounts.find(a => a.id === accId).name,
-                date: new Date().toLocaleDateString()
+                date: new Date().toLocaleDateString('zh-TW')
             };
 
             window.state.records.unshift(newRecord);
-            pushToSheets(newRecord); // 同步到 Google Sheets
-
+            saveData();
+            pushToSheets(newRecord); // 背景非同步上傳
+            
             document.getElementById(type === 'expense' ? 'exp-name' : 'inc-name').value = '';
             document.getElementById(type === 'expense' ? 'exp-amount' : 'inc-amount').value = '';
-            saveData();
-        }
-
-        function deleteRecord(id) {
-            const r = window.state.records.find(r => r.id === id);
-            if(r) {
-                const accIdx = window.state.accounts.findIndex(a => a.name === r.accountName);
-                if(accIdx !== -1) {
-                    window.state.accounts[accIdx].balance += (r.type === 'income' ? -r.amount : r.amount);
-                }
-                window.state.records = window.state.records.filter(r => r.id !== id);
-                saveData();
-            }
         }
 
         function updateUI() {
             document.getElementById('salary').value = window.state.salary;
             document.getElementById('savings-goal').value = window.state.savingsGoal;
 
-            // 帳戶渲染
+            // 帳戶
             const accCont = document.getElementById('accounts-container');
             accCont.innerHTML = (window.state.accounts || []).map(a => `
-                <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 relative group">
-                    <button onclick="deleteAccount(${a.id})" class="absolute top-2 right-2 text-stone-200 opacity-0 group-hover:opacity-100 hover:text-red-400 transition">✕</button>
+                <div class="bg-stone-50 p-4 rounded-xl border border-stone-100">
                     <div class="text-[9px] text-stone-400 font-bold uppercase mb-1">${a.name}</div>
                     <div class="font-bold text-stone-600">$${a.balance.toLocaleString()}</div>
                 </div>
@@ -343,7 +340,7 @@
             document.getElementById('exp-account').innerHTML = accOptions;
             document.getElementById('inc-account').innerHTML = accOptions;
 
-            // 五罐子邏輯
+            // 預算統計
             const totals = {
                 NEC: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'NEC').reduce((s, r) => s + r.amount, 0),
                 FFA: (window.state.records || []).filter(r => r.type === 'expense' && r.category === 'FFA').reduce((s, r) => s + r.amount, 0),
@@ -354,11 +351,11 @@
 
             const remainingForJar = window.state.salary - window.state.savingsGoal;
             const jarLogic = [
-                { id: 'NEC', title: '生活必要 (55%)', type: 'perc', val: 0.55, spent: totals.NEC },
-                { id: 'FFA', title: '財務自由 (20%)', type: 'perc', val: 0.20, spent: totals.FFA },
-                { id: 'LTSS', title: '長期儲蓄 (固定)', type: 'fixed', val: window.state.savingsGoal, spent: totals.LTSS },
-                { id: 'INT', title: '興趣開支 (15%)', type: 'perc', val: 0.15, spent: totals.INT },
-                { id: 'PLAY', title: '享樂休閒 (10%)', type: 'perc', val: 0.10, spent: totals.PLAY }
+                { title: '生活必要 (55%)', type: 'perc', val: 0.55, spent: totals.NEC, id:'NEC' },
+                { title: '財務自由 (20%)', type: 'perc', val: 0.20, spent: totals.FFA, id:'FFA' },
+                { title: '長期儲蓄 (固定)', type: 'fixed', val: window.state.savingsGoal, spent: totals.LTSS, id:'LTSS' },
+                { title: '興趣開支 (15%)', type: 'perc', val: 0.15, spent: totals.INT, id:'INT' },
+                { title: '享樂休閒 (10%)', type: 'perc', val: 0.10, spent: totals.PLAY, id:'PLAY' }
             ];
 
             let consumableRemaining = 0;
@@ -380,22 +377,17 @@
 
         function renderRecords() {
             const list = document.getElementById('record-list');
-            if (!window.state.records || window.state.records.length === 0) { list.innerHTML = `<div class="text-center py-20 text-stone-200 text-xs">尚無紀錄</div>`; return; }
+            if (!window.state.records || window.state.records.length === 0) { list.innerHTML = `<div class="text-center py-20 text-stone-200 text-xs tracking-widest">尚無紀錄</div>`; return; }
             list.innerHTML = window.state.records.map(r => `
-                <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 group">
+                <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100">
                     <div class="flex flex-col">
-                        <span class="text-xs font-bold text-stone-600">${r.name || '項目'} <span class="text-[8px] font-normal text-stone-300 ml-1">#${r.categoryName}</span></span>
+                        <span class="text-xs font-bold text-stone-600">${r.name} <span class="text-[8px] font-normal text-stone-300 ml-1">#${r.categoryName}</span></span>
                         <span class="text-[8px] text-stone-300">${r.date} · ${r.accountName}</span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : 'text-stone-500'}">${r.type === 'income' ? '+' : '-'}$${r.amount.toLocaleString()}</span>
-                        <button onclick="deleteRecord(${r.id})" class="text-stone-200 opacity-0 group-hover:opacity-100 hover:text-red-400 transition">✕</button>
-                    </div>
+                    <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : 'text-stone-500'}">${r.type === 'income' ? '+' : '-'}$${parseFloat(r.amount).toLocaleString()}</span>
                 </div>
             `).join('');
         }
-
-        window.onload = loadLocalData;
     </script>
 </body>
 </html>
