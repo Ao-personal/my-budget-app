@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>理財記帳簿 - 自動同步</title>
+    <title>理財記帳簿 - 密碼保護版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -54,16 +54,45 @@
             0%, 100% { opacity: 0.3; transform: scale(0.8); }
             50% { opacity: 1; transform: scale(1.2); }
         }
+        /* 隱藏內容 */
+        .locked-content {
+            display: none;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
+    <!-- 密碼鎖定畫面 -->
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-[#fcfaf7] flex flex-col items-center justify-center p-6 text-center">
+        <div class="mb-8">
+            <div class="w-16 h-16 milktea-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h2 class="text-xl font-bold text-stone-700">私密記帳簿</h2>
+            <p class="text-stone-400 text-sm mt-2">請輸入存取密碼以繼續</p>
+        </div>
+        <div class="w-full max-w-xs space-y-4">
+            <input type="password" id="auth-password" placeholder="請輸入密碼" class="w-full p-4 input-style text-center tracking-widest font-bold">
+            <button onclick="checkPassword()" class="w-full milktea-gradient text-white py-4 rounded-2xl font-bold shadow-md hover:brightness-105 transition">驗證身分</button>
+            <div id="auth-error" class="text-red-400 text-xs hidden">密碼錯誤，請再試一次</div>
+            
+            <div class="pt-10">
+                <p class="text-[10px] text-stone-300">第一次使用？請在下方設定新密碼</p>
+                <button onclick="setInitialPassword()" class="text-[10px] text-stone-400 underline mt-1">設定/更改密碼</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主程式內容 (預設隱藏) -->
+    <div id="main-app" class="max-w-6xl mx-auto locked-content">
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <div class="text-center md:text-left">
                 <h1 class="text-2xl font-bold tracking-widest text-stone-700 mb-1">理財記帳簿</h1>
                 <div class="flex items-center gap-2 justify-center md:justify-start">
                     <p class="text-stone-400 text-sm italic">Google Sheets 雲端模式</p>
                     <div id="sync-status" class="hidden"><span class="syncing-dot"></span></div>
+                    <button onclick="lockApp()" class="ml-2 text-[10px] text-stone-400 border border-stone-200 px-2 py-0.5 rounded hover:bg-stone-100">登出鎖定</button>
                 </div>
             </div>
             
@@ -174,6 +203,7 @@
 
     <script>
         const STORAGE_KEY = 'BUDGET_SYNC_PRO_DATA';
+        const AUTH_KEY = 'BUDGET_APP_PWD'; // 存儲密碼的 Key
         
         window.state = {
             records: [],
@@ -186,15 +216,59 @@
 
         // 啟動流程
         window.onload = function() {
-            loadLocalData();
-            if (window.state.scriptUrl) {
-                syncWithSheets(false); // 靜默同步
+            // 檢查是否有設定過密碼，如果沒設定過，預設為 "1234"
+            if (!localStorage.getItem(AUTH_KEY)) {
+                localStorage.setItem(AUTH_KEY, "1234");
             }
-            // 每 30 秒自動檢查一次
-            setInterval(() => {
-                if (window.state.scriptUrl) syncWithSheets(false);
-            }, 30000);
+            
+            // 綁定 Enter 鍵驗證
+            document.getElementById('auth-password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') checkPassword();
+            });
+
+            loadLocalData();
         };
+
+        // 密碼驗證邏輯
+        function checkPassword() {
+            const input = document.getElementById('auth-password').value;
+            const correctPwd = localStorage.getItem(AUTH_KEY);
+            const errorMsg = document.getElementById('auth-error');
+
+            if (input === correctPwd) {
+                // 通過驗證
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('main-app').classList.remove('locked-content');
+                
+                // 啟動同步與計時器
+                if (window.state.scriptUrl) {
+                    syncWithSheets(false);
+                }
+                setInterval(() => {
+                    if (window.state.scriptUrl) syncWithSheets(false);
+                }, 30000);
+            } else {
+                errorMsg.classList.remove('hidden');
+                document.getElementById('auth-password').value = '';
+            }
+        }
+
+        function setInitialPassword() {
+            const oldPwd = prompt("請輸入舊密碼（預設為 1234）：");
+            if (oldPwd === localStorage.getItem(AUTH_KEY)) {
+                const newPwd = prompt("請輸入新密碼：");
+                if (newPwd && newPwd.trim().length > 0) {
+                    localStorage.setItem(AUTH_KEY, newPwd.trim());
+                    alert("密碼更新成功！");
+                }
+            } else {
+                alert("密碼不正確。");
+            }
+        }
+
+        function lockApp() {
+            location.reload(); // 重新整理網頁即可觸發鎖定
+        }
 
         function loadLocalData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -233,7 +307,6 @@
                 const cloudData = await response.json();
                 
                 if (cloudData && Array.isArray(cloudData)) {
-                    // 簡單衝突處理：雲端筆數多於本地時更新（或直接覆蓋確保多裝置同步）
                     window.state.records = cloudData;
                     if (showNotify) alert("同步成功！已獲取雲端最新紀錄。");
                     saveData();
@@ -315,7 +388,7 @@
 
             window.state.records.unshift(newRecord);
             saveData();
-            pushToSheets(newRecord); // 背景非同步上傳
+            pushToSheets(newRecord);
             
             document.getElementById(type === 'expense' ? 'exp-name' : 'inc-name').value = '';
             document.getElementById(type === 'expense' ? 'exp-amount' : 'inc-amount').value = '';
