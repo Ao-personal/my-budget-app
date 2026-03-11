@@ -159,7 +159,9 @@
                             <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">固定支出設定</h3>
                             <button onclick="toggleModal('fixed-expense-modal')" class="text-[10px] text-stone-400 hover:text-[#b8a390]">+ 新增</button>
                         </div>
-                        <div id="fixed-expenses-list" class="space-y-2 max-h-32 overflow-y-auto pr-1"></div>
+                        <div id="fixed-expenses-list" class="space-y-2 max-h-32 overflow-y-auto pr-1">
+                            <!-- 固定支出項目會顯示在這裡 -->
+                        </div>
                     </div>
                 </div>
 
@@ -193,7 +195,6 @@
                         <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">統計</button>
                     </div>
                     
-                    <!-- 支出/收入/旅行表單區塊與前述相同，此處省略以保持精簡，維持所有邏輯... -->
                     <div id="form-expense" class="space-y-4 mb-6">
                         <div class="flex flex-col">
                             <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">支出項目</label>
@@ -278,7 +279,7 @@
         </div>
     </div>
 
-    <!-- Modals 區塊與前述相同... -->
+    <!-- Modals -->
     <div id="account-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
             <h3 class="text-lg font-bold text-stone-700 mb-4">帳戶管理</h3>
@@ -304,7 +305,7 @@
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
             <h3 class="text-lg font-bold text-stone-700 mb-4">新增固定支出</h3>
             <div class="space-y-4">
-                <input type="text" id="fixed-exp-name" placeholder="項目名稱" class="w-full p-3 input-style">
+                <input type="text" id="fixed-exp-name" placeholder="項目名稱 (例如：房租、Netflix)" class="w-full p-3 input-style">
                 <div class="grid grid-cols-2 gap-2">
                     <input type="number" id="fixed-exp-amount" placeholder="金額" class="w-full p-3 input-style">
                     <select id="fixed-exp-account" class="p-3 input-style"></select>
@@ -394,6 +395,7 @@
         function saveData() {
             const urlInput = document.getElementById('script-url');
             if (urlInput) window.state.scriptUrl = urlInput.value.trim();
+            // 同步將資料寫入瀏覽器本地端，避免重新整理後資料消失
             localStorage.setItem(STORAGE_KEY, JSON.stringify(window.state));
             updateUI();
         }
@@ -456,7 +458,7 @@
                 paymentMethod: type === 'expense' ? document.getElementById('exp-payment').value : null
             };
             window.state.records.unshift(record);
-            updateUI();
+            saveData();
             await pushAction({ action: 'addRecord', data: record });
             nameInput.value = '';
             amountInput.value = '';
@@ -480,7 +482,7 @@
             if (!name || amount <= 0 || !acc) return;
             const item = { id: Date.now(), type: 'trip', tripName: name, category: cat, amount, accountName: acc, date };
             window.state.tripRecords.unshift(item);
-            updateUI();
+            saveData();
             await pushAction({ action: 'addTripRecord', data: item });
             nameInput.value = '';
             amountInput.value = '';
@@ -489,7 +491,7 @@
         async function deleteRecord(id, type = 'normal') {
             if (type === 'trip') window.state.tripRecords = window.state.tripRecords.filter(t => t.id != id);
             else window.state.records = window.state.records.filter(r => r.id != id);
-            updateUI();
+            saveData();
             await pushAction({ action: 'deleteRecord', data: { id, type } });
         }
 
@@ -507,9 +509,10 @@
             const idx = window.state.accounts.findIndex(a => a.name === name);
             if (idx > -1) window.state.accounts[idx] = { name, balance, currency };
             else window.state.accounts.push({ name, balance, currency });
-            await pushAction({ action: 'updateAccounts', data: window.state.accounts });
+            
             toggleModal('account-modal');
-            updateUI();
+            saveData();
+            await pushAction({ action: 'updateAccounts', data: window.state.accounts });
         }
 
         function renderAccountList() {
@@ -526,9 +529,9 @@
 
         async function deleteAccountCloud(name) {
             window.state.accounts = window.state.accounts.filter(a => a.name !== name);
-            await pushAction({ action: 'updateAccounts', data: window.state.accounts });
             renderAccountList();
-            updateUI();
+            saveData();
+            await pushAction({ action: 'updateAccounts', data: window.state.accounts });
         }
 
         async function addFixedExpense() {
@@ -542,10 +545,24 @@
             const acc = accEl.value;
 
             if (!name || amount <= 0) return;
+            
+            // 將新項目加入 state
             window.state.fixedExpenses.push({ id: Date.now(), name, amount, accountName: acc });
+            
+            // 關閉視窗、儲存並更新畫面
             toggleModal('fixed-expense-modal');
+            saveData();
             await pushAction({ action: 'updateFixedExpenses', data: window.state.fixedExpenses });
-            updateUI();
+            
+            // 清空輸入框以利下次填寫
+            nameEl.value = '';
+            amtEl.value = '';
+        }
+
+        async function deleteFixedExpense(id) {
+            window.state.fixedExpenses = window.state.fixedExpenses.filter(f => f.id !== id);
+            saveData();
+            await pushAction({ action: 'updateFixedExpenses', data: window.state.fixedExpenses });
         }
 
         async function updateGlobalSettings() {
@@ -622,6 +639,28 @@
             }
             const totalAssetsEl = document.getElementById('total-assets');
             if (totalAssetsEl) totalAssetsEl.innerText = `$${Math.round(totalAssetsTWD).toLocaleString()}`;
+
+            // === 修正：渲染固定支出列表 ===
+            const fixedExpensesListEl = document.getElementById('fixed-expenses-list');
+            if (fixedExpensesListEl) {
+                if (window.state.fixedExpenses.length === 0) {
+                    fixedExpensesListEl.innerHTML = `<div class="text-[10px] text-stone-300 text-center py-2">尚未設定任何固定支出</div>`;
+                } else {
+                    fixedExpensesListEl.innerHTML = window.state.fixedExpenses.map(f => `
+                        <div class="flex justify-between items-center bg-stone-50 p-2 rounded-lg border border-stone-100 mb-2">
+                            <div class="flex flex-col">
+                                <span class="text-[11px] font-bold text-stone-600">${f.name}</span>
+                                <span class="text-[9px] text-stone-400">${f.accountName}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[11px] font-bold text-stone-500">-$${f.amount.toLocaleString()}</span>
+                                <button onclick="deleteFixedExpense(${f.id})" class="text-stone-300 hover:text-red-400 text-xs transition">✕</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+            // ==================================
 
             const salary = window.state.settings.salary || 0;
             const savings = window.state.settings.savingsGoal || 0;
@@ -782,6 +821,7 @@
         window.addAccountCloud = addAccountCloud;
         window.deleteAccountCloud = deleteAccountCloud;
         window.addFixedExpense = addFixedExpense;
+        window.deleteFixedExpense = deleteFixedExpense;
         window.updateGlobalSettings = updateGlobalSettings;
         window.syncWithSheets = syncWithSheets;
         window.togglePasswordVisibility = togglePasswordVisibility;
@@ -789,3 +829,5 @@
     </script>
 </body>
 </html>
+
+
