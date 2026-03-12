@@ -289,7 +289,8 @@
 
                     <div id="form-adjustment" class="space-y-4 mb-6 hidden">
                         <div class="p-3 bg-[#f3ede6] rounded-xl border border-[#e5ddd3] mb-2">
-                            <p class="text-[10px] text-[#8c7e6e] font-bold leading-relaxed">💡 這裡的紀錄只會改變「帳戶餘額」，不計入當月收支與儲蓄罐。適合用來記錄「繳信用卡費」或「帳戶間資金轉移」。</p>
+                            <!-- 💡 修改提示文字 -->
+                            <p class="text-[10px] text-[#8c7e6e] font-bold leading-relaxed">💡 這裡的紀錄會改變「帳戶餘額」與總資產，但不計入當月的收支統計。適合用來記錄「繳信用卡費」或「帳戶間資金轉移」。</p>
                         </div>
                         <div class="flex flex-col">
                             <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整項目</label>
@@ -677,12 +678,13 @@
                 if (balances.hasOwnProperty(r.accountName)) {
                     if (r.type === 'income') { 
                         balances[r.accountName] += r.amount; 
-                        totalIncomeTWD += amtTWD; // 💡 這裡會根據手動增加的收入紀錄累加
+                        totalIncomeTWD += amtTWD; 
                     } else if (r.type === 'expense') { 
                         balances[r.accountName] -= r.amount; 
                         totalExpenseTWD += amtTWD; 
                         if(jarSpendTWD.hasOwnProperty(r.category)) jarSpendTWD[r.category] += amtTWD;
                     } else if (r.type === 'adjustment') {
+                        // 💡 調整功能：確實改變帳戶餘額，但不增加到 totalIncomeTWD 也不加到 totalExpenseTWD 中！
                         if (r.adjType === 'plus') {
                             balances[r.accountName] += r.amount;
                         } else {
