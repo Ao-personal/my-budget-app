@@ -723,8 +723,9 @@
                 }
 
                 totalTripTWD += amtTWD;
-                totalExpenseTWD += amtTWD;
-                if (balances.hasOwnProperty(t.accountName)) balances[t.accountName] -= deductAmt;
+                // 💡 根據您的需求取消旅行的總支出與帳戶餘額扣除，將旅行改為「純明細紀錄」
+                // totalExpenseTWD += amtTWD;
+                // if (balances.hasOwnProperty(t.accountName)) balances[t.accountName] -= deductAmt;
             });
 
             let totalAssetsTWD = 0;
@@ -865,7 +866,7 @@
                         <button onclick="deleteRecord(${t.id}, 'trip')" class="absolute top-2 right-2 text-stone-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition">✕</button>
                         <div class="text-[10px] font-bold text-stone-600 mb-1">${t.tripName} (${t.category})</div>
                         <div class="flex justify-between items-end flex-wrap">
-                            <span class="text-[8px] text-stone-300">${t.date} · 由 ${t.accountName} 扣除</span>
+                            <span class="text-[8px] text-stone-300">${t.date} · 帳戶紀錄：${t.accountName} (不扣除餘額)</span>
                             <span class="text-sm font-black text-[#8c7e6e] mt-1">${displayAmt} ${subTextHtml}</span>
                         </div>
                     </div>
