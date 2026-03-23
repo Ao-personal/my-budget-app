@@ -384,15 +384,13 @@
         window.onload = function() {
             const todayIso = new Date().toISOString();
             const today = todayIso.split('T')[0];
-            const currentMonth = todayIso.substring(0, 7); // 取得 YYYY-MM
+            const currentMonth = todayIso.substring(0, 7); 
             
-            // 設定各表單預設日期為今天
             ['exp-date', 'inc-date', 'trip-date', 'adj-date'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.value = today;
             });
             
-            // 💡 設定月份選擇器預設為當前月份
             const viewMonthEl = document.getElementById('view-month');
             if(viewMonthEl) viewMonthEl.value = currentMonth;
 
@@ -588,6 +586,56 @@
             await pushAction({ action: 'deleteRecord', data: { id, type } });
         }
 
+        // 💡 新增：修改金額功能，不須改後端！
+        async function editAmount(id, type) {
+            const isTrip = type === 'trip';
+            const list = isTrip ? window.state.tripRecords : window.state.records;
+            const index = list.findIndex(r => r.id == id);
+            if (index === -1) return;
+
+            const record = list[index];
+            const itemName = isTrip ? record.tripName : record.name;
+            
+            const newAmtStr = prompt(`請輸入「${itemName}」的新金額：\n(目前金額為 ${record.amount})`, record.amount);
+            
+            if (newAmtStr === null || newAmtStr.trim() === '') return;
+            
+            const newAmt = parseFloat(newAmtStr);
+            if (isNaN(newAmt) || newAmt <= 0) {
+                alert('請輸入有效的金額 (須大於 0)！');
+                return;
+            }
+            
+            if (newAmt === record.amount) return; // 沒變動就直接離開
+
+            const oldId = record.id;
+            // 賦予新 ID，並更新金額
+            const newRecord = { ...record, id: Date.now(), amount: newAmt };
+            
+            // 1. 本地更新：直接在該位置替換掉舊資料，保持排序不變
+            list[index] = newRecord;
+            saveData(); // 會自動重新渲染畫面
+
+            // 2. 雲端更新：運用「先新增新紀錄，再刪除舊紀錄」的技巧來觸發後端同步
+            // 這樣您就完全不需要動到 Apps Script 的程式碼了！
+            if (window.state.scriptUrl) {
+                try {
+                    // 先送出新增 (這會直接加上一筆新的)
+                    await fetch(window.state.scriptUrl, { 
+                        method: 'POST', mode: 'no-cors', 
+                        body: JSON.stringify({ action: isTrip ? 'addTripRecord' : 'addRecord', data: newRecord }) 
+                    });
+                    // 再送出刪除 (這個動作會觸發後端的 syncStateToLogSheet，幫我們把整張表按時間重新洗牌排好！)
+                    await fetch(window.state.scriptUrl, { 
+                        method: 'POST', mode: 'no-cors', 
+                        body: JSON.stringify({ action: 'deleteRecord', data: { id: oldId, type: isTrip ? 'trip' : 'normal' } }) 
+                    });
+                } catch (e) {
+                    console.error("編輯同步失敗", e);
+                }
+            }
+        }
+
         async function addAccountCloud() {
             const nameEl = document.getElementById('new-acc-name');
             const balEl = document.getElementById('new-acc-balance');
@@ -672,7 +720,6 @@
             const rate = window.state.settings.usdRate || 32.5;
             const apiRates = window.state.settings.rates; 
             
-            // 💡 取得當前選擇的月份 (YYYY-MM)，預設為當天所屬月份
             const viewMonthEl = document.getElementById('view-month');
             const viewMonth = viewMonthEl ? viewMonthEl.value : new Date().toISOString().substring(0, 7);
 
@@ -690,7 +737,6 @@
                 const currency = curMap[r.accountName];
                 const amtTWD = currency === 'USD' ? r.amount * rate : r.amount;
                 
-                // 1. 【計算帳戶餘額】所有時間的紀錄都會影響帳戶餘額與總資產
                 if (balances.hasOwnProperty(r.accountName)) {
                     if (r.type === 'income') { 
                         balances[r.accountName] += r.amount; 
@@ -705,7 +751,6 @@
                     }
                 }
 
-                // 2. 【計算當月收支】只有符合選擇月份的紀錄，才會進入收支與儲蓄罐統計
                 if (r.date.startsWith(viewMonth)) {
                     if (r.type === 'income') {
                         totalIncomeTWD += amtTWD;
@@ -720,10 +765,8 @@
                 const currency = curMap[f.accountName];
                 const amtTWD = currency === 'USD' ? f.amount * rate : f.amount;
                 
-                // 固定支出會扣除全局帳戶餘額
                 if (balances.hasOwnProperty(f.accountName)) balances[f.accountName] -= f.amount;
                 
-                // 固定支出視為每個月都會發生的開銷，因此一定會算入所選月份的當月支出
                 totalExpenseTWD += amtTWD;
                 jarSpendTWD.NEC += amtTWD; 
             });
@@ -741,13 +784,11 @@
                     }
                 }
 
-                // 旅行紀錄只統計當月的總額
                 if (t.date.startsWith(viewMonth)) {
                     totalTripTWD += amtTWD;
                 }
             });
 
-            // --- 渲染總資產 ---
             let totalAssetsTWD = 0;
             const accountsContainer = document.getElementById('accounts-container');
             if (accountsContainer) {
@@ -766,7 +807,6 @@
             const totalAssetsEl = document.getElementById('total-assets');
             if (totalAssetsEl) totalAssetsEl.innerText = `$${Math.round(totalAssetsTWD).toLocaleString()}`;
 
-            // --- 渲染固定支出列表 ---
             const fixedExpensesListEl = document.getElementById('fixed-expenses-list');
             if (fixedExpensesListEl) {
                 if (window.state.fixedExpenses.length === 0) {
@@ -787,7 +827,6 @@
                 }
             }
 
-            // --- 渲染儲蓄罐與本月可用金額 ---
             const salary = window.state.settings.salary || 0;
             const savings = window.state.settings.savingsGoal || 0;
             const remainingForJar = salary - savings;
@@ -820,19 +859,17 @@
             const monthlyTotalEl = document.getElementById('monthly-total');
             if (monthlyTotalEl) monthlyTotalEl.innerText = `$${Math.round(consumable).toLocaleString()}`;
 
-            // --- 渲染帳戶選單 ---
             const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');
             ['exp-account', 'inc-account', 'trip-item-account', 'fixed-exp-account', 'adj-account'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.innerHTML = accOptions;
             });
 
-            // 💡 提取並渲染【當月】的各項明細列表
             const filteredRecords = window.state.records.filter(r => r.date.startsWith(viewMonth));
             const filteredTrips = window.state.tripRecords.filter(t => t.date.startsWith(viewMonth));
 
             const renderRec = (r) => `
-                <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100">
+                <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 group">
                     <div class="flex flex-col">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-stone-600">${r.name}</span>
@@ -840,9 +877,11 @@
                         </div>
                         <span class="text-[8px] text-stone-300">${r.date} · ${r.accountName}</span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : 'text-stone-500'}">${r.type === 'income' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
-                        <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400">✕</button>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : 'text-stone-500'} mr-1">${r.type === 'income' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
+                        <!-- 💡 新增的編輯按鈕 -->
+                        <button onclick="editAmount(${r.id}, '${r.type}')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold transition">✎</button>
+                        <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400 text-xs transition">✕</button>
                     </div>
                 </div>
             `;
@@ -854,7 +893,7 @@
             const adjListEl = document.getElementById('record-list-adjustment');
             if (adjListEl) {
                 adjListEl.innerHTML = filteredRecords.filter(r => r.type === 'adjustment').map(r => `
-                    <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100">
+                    <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 group">
                         <div class="flex flex-col">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs font-bold text-stone-600">${r.name}</span>
@@ -862,9 +901,11 @@
                             </div>
                             <span class="text-[8px] text-stone-300">${r.date} · ${r.accountName}</span>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-xs font-bold ${r.adjType === 'plus' ? 'text-green-600' : 'text-stone-500'}">${r.adjType === 'plus' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
-                            <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400">✕</button>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold ${r.adjType === 'plus' ? 'text-green-600' : 'text-stone-500'} mr-1">${r.adjType === 'plus' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
+                            <!-- 💡 新增的編輯按鈕 -->
+                            <button onclick="editAmount(${r.id}, '${r.type}')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold transition">✎</button>
+                            <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400 text-xs transition">✕</button>
                         </div>
                     </div>
                 `).join('');
@@ -889,8 +930,12 @@
 
                     return `
                     <div class="bg-white p-4 rounded-2xl border border-[#e5ddd3] relative group shadow-sm">
-                        <button onclick="deleteRecord(${t.id}, 'trip')" class="absolute top-2 right-2 text-stone-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition">✕</button>
-                        <div class="text-[10px] font-bold text-stone-600 mb-1">${t.tripName} (${t.category})</div>
+                        <!-- 💡 新增的編輯按鈕，懸浮時與刪除按鈕一起出現 -->
+                        <div class="absolute top-2 right-2 flex gap-3 opacity-0 group-hover:opacity-100 transition">
+                            <button onclick="editAmount(${t.id}, 'trip')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold">✎</button>
+                            <button onclick="deleteRecord(${t.id}, 'trip')" class="text-stone-300 hover:text-red-400 text-xs">✕</button>
+                        </div>
+                        <div class="text-[10px] font-bold text-stone-600 mb-1 pr-12">${t.tripName} (${t.category})</div>
                         <div class="flex justify-between items-end flex-wrap">
                             <span class="text-[8px] text-stone-300">${t.date} · 帳戶紀錄：${t.accountName} (不扣除餘額)</span>
                             <span class="text-sm font-black text-[#8c7e6e] mt-1">${displayAmt} ${subTextHtml}</span>
@@ -900,7 +945,6 @@
                 }).join('');
             }
 
-            // --- 渲染當月統計圖表 ---
             const totalJarSpent = jarLogic.reduce((acc, curr) => acc + curr.spent, 0);
             const netBalance = totalIncomeTWD - totalExpenseTWD;
 
@@ -982,6 +1026,7 @@
         }
         window.switchTab = switchTab;
         window.deleteRecord = deleteRecord;
+        window.editAmount = editAmount; // 💡 註冊編輯函數
         window.toggleModal = toggleModal;
         window.addRecord = addRecord;
         window.addTripRecord = addTripRecord;
