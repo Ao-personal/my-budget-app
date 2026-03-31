@@ -152,15 +152,36 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">
-                        <h3 class="text-xs font-bold text-stone-400 mb-4 tracking-widest uppercase">基本預算</h3>
-                        <div class="grid grid-cols-2 gap-4">
+                        <h3 class="text-xs font-bold text-stone-400 mb-4 tracking-widest uppercase flex justify-between items-center">
+                            <span>基本預算與分配</span>
+                            <span id="jar-total-warning" class="text-red-400 hidden text-[9px] font-bold bg-red-50 px-2 py-0.5 rounded">總和需為100%</span>
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-stone-50">
                             <div>
                                 <label class="block text-[10px] text-stone-400 mb-1">實拿月薪 (TWD)</label>
-                                <input type="number" id="salary" class="w-full p-3 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">
+                                <input type="number" id="salary" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">
                             </div>
                             <div>
                                 <label class="block text-[10px] text-stone-400 mb-1">儲蓄目標 (固定 TWD)</label>
-                                <input type="number" id="savings-goal" class="w-full p-3 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">
+                                <input type="number" id="savings-goal" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div>
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">必要 (%)</label>
+                                <input type="number" id="jar-pct-nec" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">財富 (%)</label>
+                                <input type="number" id="jar-pct-ffa" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">興趣 (%)</label>
+                                <input type="number" id="jar-pct-int" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">享樂 (%)</label>
+                                <input type="number" id="jar-pct-play" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">
                             </div>
                         </div>
                     </div>
@@ -215,11 +236,12 @@
                             <div class="flex flex-col">
                                 <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐</label>
                                 <select id="exp-category" class="w-full p-3 input-style text-[11px]">
-                                    <option value="NEC">生活必要 (60%)</option>
-                                    <option value="FFA">財務自由 (15%)</option>
+                                    <!-- Options updated dynamically via updateUI() -->
+                                    <option value="NEC">生活必要</option>
+                                    <option value="FFA">財務自由</option>
                                     <option value="LTSS">長期儲蓄 (固定)</option>
-                                    <option value="INT">興趣開支 (15%)</option>
-                                    <option value="PLAY">享樂休閒 (10%)</option>
+                                    <option value="INT">興趣開支</option>
+                                    <option value="PLAY">享樂休閒</option>
                                 </select>
                             </div>
                             <div class="flex flex-col">
@@ -492,7 +514,8 @@
                 usdRate: 32.5, 
                 password: "1234", 
                 rates: null,
-                paymentMethods: ['現金', 'CUBE', 'LinePay', '銀行轉帳']
+                paymentMethods: ['現金', 'CUBE', 'LinePay', '銀行轉帳'],
+                jars: { NEC: 60, FFA: 15, INT: 15, PLAY: 10 } // 💡 新增 jars 預設設定
             },
             scriptUrl: ''
         };
@@ -567,11 +590,18 @@
                 if (!window.state.settings) window.state.settings = {};
                 if (!window.state.settings.password) window.state.settings.password = "1234";
                 if (!window.state.settings.paymentMethods) window.state.settings.paymentMethods = ['現金', 'CUBE', 'LinePay', '銀行轉帳'];
+                if (!window.state.settings.jars) window.state.settings.jars = { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };
                 
                 if (document.getElementById('script-url')) document.getElementById('script-url').value = window.state.scriptUrl || '';
                 if (document.getElementById('salary')) document.getElementById('salary').value = window.state.settings.salary || 45000;
                 if (document.getElementById('savings-goal')) document.getElementById('savings-goal').value = window.state.settings.savingsGoal || 10000;
                 if (document.getElementById('app-password')) document.getElementById('app-password').value = window.state.settings.password;
+                
+                // 💡 讀取儲蓄罐設定值
+                if (document.getElementById('jar-pct-nec')) document.getElementById('jar-pct-nec').value = window.state.settings.jars.NEC;
+                if (document.getElementById('jar-pct-ffa')) document.getElementById('jar-pct-ffa').value = window.state.settings.jars.FFA;
+                if (document.getElementById('jar-pct-int')) document.getElementById('jar-pct-int').value = window.state.settings.jars.INT;
+                if (document.getElementById('jar-pct-play')) document.getElementById('jar-pct-play').value = window.state.settings.jars.PLAY;
             }
             updateUI();
         }
@@ -601,10 +631,17 @@
                     window.state = { ...window.state, ...cloud };
                     if (!window.state.settings) window.state.settings = {};
                     if (!window.state.settings.paymentMethods) window.state.settings.paymentMethods = ['現金', 'CUBE', 'LinePay', '銀行轉帳'];
+                    if (!window.state.settings.jars) window.state.settings.jars = { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };
 
                     if (document.getElementById('salary')) document.getElementById('salary').value = window.state.settings.salary || 45000;
                     if (document.getElementById('savings-goal')) document.getElementById('savings-goal').value = window.state.settings.savingsGoal || 10000;
                     if (document.getElementById('app-password')) document.getElementById('app-password').value = window.state.settings.password || "1234";
+                    
+                    if (document.getElementById('jar-pct-nec')) document.getElementById('jar-pct-nec').value = window.state.settings.jars.NEC;
+                    if (document.getElementById('jar-pct-ffa')) document.getElementById('jar-pct-ffa').value = window.state.settings.jars.FFA;
+                    if (document.getElementById('jar-pct-int')) document.getElementById('jar-pct-int').value = window.state.settings.jars.INT;
+                    if (document.getElementById('jar-pct-play')) document.getElementById('jar-pct-play').value = window.state.settings.jars.PLAY;
+
                     saveData();
                     if (showNotify) alert("同步成功！");
                 }
@@ -991,9 +1028,20 @@
             const goalEl = document.getElementById('savings-goal');
             const pwdEl = document.getElementById('app-password');
             
+            const necEl = document.getElementById('jar-pct-nec');
+            const ffaEl = document.getElementById('jar-pct-ffa');
+            const intEl = document.getElementById('jar-pct-int');
+            const playEl = document.getElementById('jar-pct-play');
+            
             if (salaryEl) window.state.settings.salary = parseFloat(salaryEl.value) || 0;
             if (goalEl) window.state.settings.savingsGoal = parseFloat(goalEl.value) || 0;
             if (pwdEl) window.state.settings.password = pwdEl.value.trim() || "1234";
+            
+            if (!window.state.settings.jars) window.state.settings.jars = {};
+            if (necEl) window.state.settings.jars.NEC = parseFloat(necEl.value) || 0;
+            if (ffaEl) window.state.settings.jars.FFA = parseFloat(ffaEl.value) || 0;
+            if (intEl) window.state.settings.jars.INT = parseFloat(intEl.value) || 0;
+            if (playEl) window.state.settings.jars.PLAY = parseFloat(playEl.value) || 0;
             
             saveData();
             await pushAction({ action: 'updateSettings', data: window.state.settings });
@@ -1002,7 +1050,20 @@
         function updateUI() {
             const rate = window.state.settings.usdRate || 32.5;
             const apiRates = window.state.settings.rates; 
+            const jars = window.state.settings.jars || { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };
             
+            // 💡 驗證儲蓄罐比例加總
+            const totalPct = (jars.NEC || 0) + (jars.FFA || 0) + (jars.INT || 0) + (jars.PLAY || 0);
+            const warningEl = document.getElementById('jar-total-warning');
+            if (warningEl) {
+                if (totalPct !== 100) {
+                    warningEl.classList.remove('hidden');
+                    warningEl.innerText = `加總: ${totalPct}% (需為100%)`;
+                } else {
+                    warningEl.classList.add('hidden');
+                }
+            }
+
             const viewMonthEl = document.getElementById('view-month');
             const viewMonth = viewMonthEl ? viewMonthEl.value : new Date().toISOString().substring(0, 7);
 
@@ -1079,7 +1140,6 @@
                     const amt = balances[acc.name] || 0;
                     const twd = acc.currency === 'USD' ? amt * rate : amt;
                     
-                    // 💡 如果沒有勾選「不計入總資產」，才算進總資產裡
                     if (!acc.excludeFromTotal) {
                         totalAssetsTWD += twd;
                     }
@@ -1119,12 +1179,14 @@
             const salary = window.state.settings.salary || 0;
             const savings = window.state.settings.savingsGoal || 0;
             const remainingForJar = salary - savings;
+            
+            // 💡 使用自訂設定中的百分比
             const jarLogic = [
-                { name: '生活必要', label: '60%', val: 0.60, spent: jarSpendTWD.NEC, id:'NEC', color: '#dccabd' },
-                { name: '財務自由', label: '15%', val: 0.15, spent: jarSpendTWD.FFA, id:'FFA', color: '#c5d3c1' },
+                { name: '生活必要', label: `${jars.NEC}%`, val: jars.NEC / 100, spent: jarSpendTWD.NEC, id:'NEC', color: '#dccabd' },
+                { name: '財務自由', label: `${jars.FFA}%`, val: jars.FFA / 100, spent: jarSpendTWD.FFA, id:'FFA', color: '#c5d3c1' },
                 { name: '長期儲蓄', label: '固定', val: savings, isFixed: true, spent: jarSpendTWD.LTSS, id:'LTSS', color: '#e5ddd3' },
-                { name: '興趣開支', label: '15%', val: 0.15, spent: jarSpendTWD.INT, id:'INT', color: '#b8a390' },
-                { name: '享樂休閒', label: '10%', val: 0.10, spent: jarSpendTWD.PLAY, id:'PLAY', color: '#a4b69c' }
+                { name: '興趣開支', label: `${jars.INT}%`, val: jars.INT / 100, spent: jarSpendTWD.INT, id:'INT', color: '#b8a390' },
+                { name: '享樂休閒', label: `${jars.PLAY}%`, val: jars.PLAY / 100, spent: jarSpendTWD.PLAY, id:'PLAY', color: '#a4b69c' }
             ];
 
             let consumable = 0;
@@ -1154,6 +1216,20 @@
                 if(el) el.innerHTML = accOptions;
             });
 
+            // 💡 更新新增支出表單中的「儲蓄罐選項」，套用使用者設定的比例
+            const expCatEl = document.getElementById('exp-category');
+            if(expCatEl) {
+                const currentSelection = expCatEl.value;
+                expCatEl.innerHTML = `
+                    <option value="NEC">生活必要 (${jars.NEC}%)</option>
+                    <option value="FFA">財務自由 (${jars.FFA}%)</option>
+                    <option value="LTSS">長期儲蓄 (固定)</option>
+                    <option value="INT">興趣開支 (${jars.INT}%)</option>
+                    <option value="PLAY">享樂休閒 (${jars.PLAY}%)</option>
+                `;
+                if(currentSelection) expCatEl.value = currentSelection;
+            }
+
             // 渲染支付方式選項
             const paymentMethods = window.state.settings.paymentMethods || ['現金', 'CUBE', 'LinePay', '銀行轉帳'];
             const paymentOptions = paymentMethods.map(p => `<option value="${p}">${p}</option>`).join('');
@@ -1163,7 +1239,7 @@
             const filteredRecords = window.state.records.filter(r => r.date.startsWith(viewMonth));
             const filteredTrips = window.state.tripRecords.filter(t => t.date.startsWith(viewMonth));
 
-            // 💡 建立儲蓄罐名稱對應表，用來在明細中顯示
+            // 建立儲蓄罐名稱對應表，用來在明細中顯示
             const jarNames = { 
                 NEC: '生活必要', 
                 FFA: '財務自由', 
