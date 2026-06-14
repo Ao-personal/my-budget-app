@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -64,6 +65,14 @@
             border-radius: 6px;
             background: #eeeae4;
             color: #8c7e6e;
+        }
+        /* 隱藏捲軸 */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
@@ -145,7 +154,6 @@
 
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-black text-stone-700 tracking-widest border-l-4 border-[#b8a390] pl-3">月度收支與預算</h2>
-                    <!-- 自訂月份選擇按鈕 -->
                     <input type="hidden" id="view-month">
                     <button onclick="openMonthPickerModal()" id="view-month-btn" class="p-2 px-4 input-style text-sm font-bold text-stone-600 shadow-sm flex items-center gap-2 hover:bg-white transition">
                         <span id="view-month-display">載入中...</span>
@@ -222,12 +230,14 @@
 
             <div class="lg:col-span-4 mt-12 lg:mt-0">
                 <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm h-full flex flex-col">
-                    <div class="flex mb-6 border-b border-stone-100">
-                        <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn flex-1 py-2 text-[11px] font-bold border-b-2 border-[#b8a390]">支出</button>
-                        <button onclick="switchTab('income')" id="tab-income" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">收入</button>
-                        <button onclick="switchTab('trip')" id="tab-trip" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">旅行</button>
-                        <button onclick="switchTab('adjustment')" id="tab-adjustment" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">調整</button>
-                        <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn flex-1 py-2 text-[11px] font-bold text-stone-300">統計</button>
+                    <div class="flex mb-6 border-b border-stone-100 overflow-x-auto hide-scrollbar pb-1">
+                        <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold border-b-2 border-[#b8a390] whitespace-nowrap">支出</button>
+                        <button onclick="switchTab('income')" id="tab-income" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">收入</button>
+                        <button onclick="switchTab('trip')" id="tab-trip" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">旅行</button>
+                        <!-- 💡 新增的多支出 Tab -->
+                        <button onclick="switchTab('extra')" id="tab-extra" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">多支出</button>
+                        <button onclick="switchTab('adjustment')" id="tab-adjustment" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">調整</button>
+                        <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">統計</button>
                     </div>
                     
                     <div id="form-expense" class="space-y-4 mb-6">
@@ -240,11 +250,6 @@
                                 <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐</label>
                                 <select id="exp-category" class="w-full p-3 input-style text-[11px]">
                                     <!-- Options updated dynamically via updateUI() -->
-                                    <option value="NEC">生活必要</option>
-                                    <option value="FFA">財務自由</option>
-                                    <option value="LTSS">長期儲蓄 (固定)</option>
-                                    <option value="INT">興趣開支</option>
-                                    <option value="PLAY">享樂休閒</option>
                                 </select>
                             </div>
                             <div class="flex flex-col">
@@ -317,6 +322,45 @@
                             </div>
                         </div>
                         <button onclick="addTripRecord()" class="w-full milktea-gradient-brown text-[#5d5245] py-3 rounded-xl font-bold">新增旅行紀錄</button>
+                    </div>
+
+                    <!-- 💡 新增的多支出表單 -->
+                    <div id="form-extra" class="space-y-4 mb-6 hidden">
+                        <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-2">
+                            <p class="text-[10px] text-indigo-500 font-bold leading-relaxed">💡 「多支出」會扣除選擇的「帳戶」與「儲蓄罐」餘額，但不會計入當月「一般收支統計」，適合特殊專案或代墊款項。</p>
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">多支出項目</label>
+                            <input type="text" id="extra-name" placeholder="例如：專案採買、代墊" class="w-full p-3 input-style text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col">
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐 (從哪扣)</label>
+                                <select id="extra-category" class="w-full p-3 input-style text-[11px]">
+                                    <!-- Options updated dynamically via updateUI() -->
+                                </select>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>
+                                <input type="date" id="extra-date" class="p-3 input-style text-[11px]">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col">
+                                <div class="flex justify-between items-center mb-1 ml-1">
+                                    <label class="text-[9px] text-stone-400 font-bold">支付方式</label>
+                                    <button onclick="openPaymentModal()" class="text-[9px] text-stone-400 hover:text-[#b8a390] transition">+ 新增</button>
+                                </div>
+                                <select id="extra-payment" class="p-3 input-style text-[11px]"></select>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳戶</label>
+                                <select id="extra-account" class="p-3 input-style text-[11px]"></select>
+                            </div>
+                        </div>
+                        <input type="number" id="extra-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">
+                        <button onclick="addRecord('extra')" class="w-full bg-indigo-400 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition shadow-sm">新增多支出</button>
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-extra"></div>
                     </div>
 
                     <div id="form-adjustment" class="space-y-4 mb-6 hidden">
@@ -518,7 +562,7 @@
                 password: "1234", 
                 rates: null,
                 paymentMethods: ['現金', 'CUBE', 'LinePay', '銀行轉帳'],
-                jars: { NEC: 60, FFA: 15, INT: 15, PLAY: 10 } // 💡 新增 jars 預設設定
+                jars: { NEC: 60, FFA: 15, INT: 15, PLAY: 10 }
             },
             scriptUrl: ''
         };
@@ -528,7 +572,8 @@
             const today = todayIso.split('T')[0];
             const currentMonth = todayIso.substring(0, 7); 
             
-            ['exp-date', 'inc-date', 'trip-date', 'adj-date'].forEach(id => {
+            // 💡 將 extra-date 也加入預設今天日期
+            ['exp-date', 'inc-date', 'trip-date', 'adj-date', 'extra-date'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.value = today;
             });
@@ -600,7 +645,6 @@
                 if (document.getElementById('savings-goal')) document.getElementById('savings-goal').value = window.state.settings.savingsGoal || 10000;
                 if (document.getElementById('app-password')) document.getElementById('app-password').value = window.state.settings.password;
                 
-                // 💡 讀取儲蓄罐設定值
                 if (document.getElementById('jar-pct-nec')) document.getElementById('jar-pct-nec').value = window.state.settings.jars.NEC;
                 if (document.getElementById('jar-pct-ffa')) document.getElementById('jar-pct-ffa').value = window.state.settings.jars.FFA;
                 if (document.getElementById('jar-pct-int')) document.getElementById('jar-pct-int').value = window.state.settings.jars.INT;
@@ -662,7 +706,6 @@
             }
         }
 
-        // 月份選擇器功能
         function openMonthPickerModal() {
             const currentVal = document.getElementById('view-month').value;
             if (currentVal) {
@@ -707,10 +750,9 @@
             document.getElementById('view-month-display').innerText = `${tempPickerYear} 年 ${mStr} 月`;
             
             toggleModal('month-picker-modal');
-            updateUI(); // 重新計算與渲染
+            updateUI();
         }
 
-        // 支付方式功能
         function openPaymentModal() {
             document.getElementById('new-payment-name').value = '';
             document.getElementById('payment-error').classList.add('hidden');
@@ -736,21 +778,20 @@
             await pushAction({ action: 'updateSettings', data: window.state.settings });
         }
 
-        // 編輯紀錄功能
+        // 💡 編輯紀錄功能 (支援額外支出的判斷)
         function openEditModal(id, type) {
             const isTrip = type === 'trip';
             const list = isTrip ? window.state.tripRecords : window.state.records;
             const record = list.find(r => r.id == id);
             if (!record) return;
 
-            // 載入當前帳戶選單
             const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');
             document.getElementById('edit-account').innerHTML = accOptions;
             document.getElementById('edit-account').value = record.accountName;
 
-            // 判斷是否需要顯示「支付方式」(只有普通支出才有)
             const paymentContainer = document.getElementById('edit-payment-container');
-            if (type === 'expense') {
+            // 💡 若為支出 或 多支出，則顯示支付方式選項
+            if (type === 'expense' || type === 'extra') {
                 const paymentMethods = window.state.settings.paymentMethods || ['現金', 'CUBE', 'LinePay', '銀行轉帳'];
                 document.getElementById('edit-payment').innerHTML = paymentMethods.map(p => `<option value="${p}">${p}</option>`).join('');
                 document.getElementById('edit-payment').value = record.paymentMethod || paymentMethods[0];
@@ -759,7 +800,6 @@
                 paymentContainer.classList.add('hidden');
             }
 
-            // 填入金額與隱藏資訊
             document.getElementById('edit-amount').value = record.amount;
             document.getElementById('edit-record-id').value = id;
             document.getElementById('edit-record-type').value = type;
@@ -786,30 +826,26 @@
 
             const oldRecord = list[index];
 
-            // 檢查是否真的有修改內容
             let isChanged = false;
             if (oldRecord.amount !== newAmt) isChanged = true;
             if (oldRecord.accountName !== newAcc) isChanged = true;
-            if (type === 'expense' && oldRecord.paymentMethod !== newPayment) isChanged = true;
+            if ((type === 'expense' || type === 'extra') && oldRecord.paymentMethod !== newPayment) isChanged = true;
 
             if (!isChanged) {
                 toggleModal('edit-record-modal');
-                return; // 沒有變更就直接關閉
+                return; 
             }
 
             const oldId = oldRecord.id;
-            // 賦予新 ID，並更新資料
             const newRecord = { ...oldRecord, id: Date.now(), amount: newAmt, accountName: newAcc };
-            if (type === 'expense') {
+            if (type === 'expense' || type === 'extra') {
                 newRecord.paymentMethod = newPayment;
             }
             
-            // 1. 本地更新
             list[index] = newRecord;
-            saveData(); // 會自動重新渲染畫面
+            saveData(); 
             toggleModal('edit-record-modal');
 
-            // 2. 雲端更新 (先新增、後刪除舊紀錄)
             if (window.state.scriptUrl) {
                 try {
                     await fetch(window.state.scriptUrl, { 
@@ -826,9 +862,12 @@
             }
         }
 
-        // 新增紀錄功能
+        // 💡 新增紀錄功能 (支援多支出)
         async function addRecord(type) {
-            const p = type === 'expense' ? 'exp' : 'inc';
+            let p = 'exp';
+            if (type === 'income') p = 'inc';
+            else if (type === 'extra') p = 'extra'; // 設定對應的 ID 字首
+
             const nameInput = document.getElementById(`${p}-name`);
             const amountInput = document.getElementById(`${p}-amount`);
             const accEl = document.getElementById(`${p}-account`);
@@ -844,9 +883,9 @@
             if (amount <= 0 || !acc) return;
             const record = {
                 id: Date.now(), type, name: name || '未命名', amount, date,
-                category: type === 'expense' ? document.getElementById('exp-category').value : 'INC',
+                category: (type === 'expense' || type === 'extra') ? document.getElementById(`${p}-category`).value : 'INC',
                 accountName: acc,
-                paymentMethod: type === 'expense' ? document.getElementById('exp-payment').value : null
+                paymentMethod: (type === 'expense' || type === 'extra') ? document.getElementById(`${p}-payment`).value : null
             };
             window.state.records.unshift(record);
             saveData();
@@ -917,7 +956,6 @@
             await pushAction({ action: 'deleteRecord', data: { id, type } });
         }
 
-        // 💡 帳戶與設定功能 (升級：支援編輯帳戶與不計入總資產)
         async function addAccountCloud() {
             const nameEl = document.getElementById('new-acc-name');
             const balEl = document.getElementById('new-acc-balance');
@@ -935,7 +973,6 @@
             if (idx > -1) window.state.accounts[idx] = { name, balance, currency, excludeFromTotal };
             else window.state.accounts.push({ name, balance, currency, excludeFromTotal });
             
-            // 清除輸入框
             nameEl.value = '';
             balEl.value = '';
             if(excEl) excEl.checked = false;
@@ -966,8 +1003,8 @@
             const idx = window.state.accounts.findIndex(a => a.name === name);
             if(idx > -1) {
                 window.state.accounts[idx] = { name, balance, currency, excludeFromTotal };
-                saveData(); // 會自動重新計算並渲染首頁
-                renderAccountList(); // 更新背景清單
+                saveData(); 
+                renderAccountList(); 
                 toggleModal('edit-account-modal');
                 await pushAction({ action: 'updateAccounts', data: window.state.accounts });
             }
@@ -1055,7 +1092,6 @@
             const apiRates = window.state.settings.rates; 
             const jars = window.state.settings.jars || { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };
             
-            // 💡 驗證儲蓄罐比例加總
             const totalPct = (jars.NEC || 0) + (jars.FFA || 0) + (jars.INT || 0) + (jars.PLAY || 0);
             const warningEl = document.getElementById('jar-total-warning');
             if (warningEl) {
@@ -1078,16 +1114,18 @@
             
             let totalIncomeTWD = 0; 
             let totalExpenseTWD = 0;
+            let totalExtraTWD = 0; // 💡 追蹤「多支出」統計
             let jarSpendTWD = { NEC:0, FFA:0, LTSS:0, INT:0, PLAY:0 };
 
             window.state.records.forEach(r => {
                 const currency = curMap[r.accountName];
                 const amtTWD = currency === 'USD' ? r.amount * rate : r.amount;
                 
+                // 💡 計算所有帳戶餘額：含 income, expense, extra, adjustment
                 if (balances.hasOwnProperty(r.accountName)) {
                     if (r.type === 'income') { 
                         balances[r.accountName] += r.amount; 
-                    } else if (r.type === 'expense') { 
+                    } else if (r.type === 'expense' || r.type === 'extra') { 
                         balances[r.accountName] -= r.amount; 
                     } else if (r.type === 'adjustment') {
                         if (r.adjType === 'plus') {
@@ -1098,11 +1136,16 @@
                     }
                 }
 
+                // 當月數據統計
                 if (r.date.startsWith(viewMonth)) {
                     if (r.type === 'income') {
                         totalIncomeTWD += amtTWD;
                     } else if (r.type === 'expense') {
                         totalExpenseTWD += amtTWD;
+                        if(jarSpendTWD.hasOwnProperty(r.category)) jarSpendTWD[r.category] += amtTWD;
+                    } else if (r.type === 'extra') {
+                        // 💡 不計入 totalExpenseTWD，但計入多支出統計與罐子扣款
+                        totalExtraTWD += amtTWD;
                         if(jarSpendTWD.hasOwnProperty(r.category)) jarSpendTWD[r.category] += amtTWD;
                     }
                 }
@@ -1183,7 +1226,6 @@
             const savings = window.state.settings.savingsGoal || 0;
             const remainingForJar = salary - savings;
             
-            // 💡 使用自訂設定中的百分比
             const jarLogic = [
                 { name: '生活必要', label: `${jars.NEC}%`, val: jars.NEC / 100, spent: jarSpendTWD.NEC, id:'NEC', color: '#dccabd' },
                 { name: '財務自由', label: `${jars.FFA}%`, val: jars.FFA / 100, spent: jarSpendTWD.FFA, id:'FFA', color: '#c5d3c1' },
@@ -1213,36 +1255,39 @@
             const monthlyTotalEl = document.getElementById('monthly-total');
             if (monthlyTotalEl) monthlyTotalEl.innerText = `$${Math.round(consumable).toLocaleString()}`;
 
+            // 💡 新增把選項寫入 "多支出" 表單裡
             const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');
-            ['exp-account', 'inc-account', 'trip-item-account', 'fixed-exp-account', 'adj-account'].forEach(id => {
+            ['exp-account', 'inc-account', 'trip-item-account', 'fixed-exp-account', 'adj-account', 'extra-account'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.innerHTML = accOptions;
             });
 
-            // 💡 更新新增支出表單中的「儲蓄罐選項」，套用使用者設定的比例
-            const expCatEl = document.getElementById('exp-category');
-            if(expCatEl) {
-                const currentSelection = expCatEl.value;
-                expCatEl.innerHTML = `
-                    <option value="NEC">生活必要 (${jars.NEC}%)</option>
-                    <option value="FFA">財務自由 (${jars.FFA}%)</option>
-                    <option value="LTSS">長期儲蓄 (固定)</option>
-                    <option value="INT">興趣開支 (${jars.INT}%)</option>
-                    <option value="PLAY">享樂休閒 (${jars.PLAY}%)</option>
-                `;
-                if(currentSelection) expCatEl.value = currentSelection;
-            }
+            // 更新支出與多支出的儲蓄罐選項
+            ['exp-category', 'extra-category'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    const currentSelection = el.value;
+                    el.innerHTML = `
+                        <option value="NEC">生活必要 (${jars.NEC}%)</option>
+                        <option value="FFA">財務自由 (${jars.FFA}%)</option>
+                        <option value="LTSS">長期儲蓄 (固定)</option>
+                        <option value="INT">興趣開支 (${jars.INT}%)</option>
+                        <option value="PLAY">享樂休閒 (${jars.PLAY}%)</option>
+                    `;
+                    if(currentSelection) el.value = currentSelection;
+                }
+            });
 
-            // 渲染支付方式選項
             const paymentMethods = window.state.settings.paymentMethods || ['現金', 'CUBE', 'LinePay', '銀行轉帳'];
             const paymentOptions = paymentMethods.map(p => `<option value="${p}">${p}</option>`).join('');
-            const expPaymentEl = document.getElementById('exp-payment');
-            if(expPaymentEl) expPaymentEl.innerHTML = paymentOptions;
+            ['exp-payment', 'extra-payment'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerHTML = paymentOptions;
+            });
 
             const filteredRecords = window.state.records.filter(r => r.date.startsWith(viewMonth));
             const filteredTrips = window.state.tripRecords.filter(t => t.date.startsWith(viewMonth));
 
-            // 建立儲蓄罐名稱對應表，用來在明細中顯示
             const jarNames = { 
                 NEC: '生活必要', 
                 FFA: '財務自由', 
@@ -1256,13 +1301,14 @@
                     <div class="flex flex-col">
                         <div class="flex items-center gap-2 mb-0.5">
                             <span class="text-xs font-bold text-stone-600">${r.name}</span>
-                            ${r.type === 'expense' && jarNames[r.category] ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-[#fdfcfb] border border-[#e5ddd3] text-[#8c7e6e] shadow-sm">${jarNames[r.category]}</span>` : ''}
+                            ${(r.type === 'expense' || r.type === 'extra') && jarNames[r.category] ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-[#fdfcfb] border border-[#e5ddd3] text-[#8c7e6e] shadow-sm">${jarNames[r.category]}</span>` : ''}
+                            ${r.type === 'extra' ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-500 shadow-sm">多支出</span>` : ''}
                             ${r.paymentMethod ? `<span class="payment-tag">${r.paymentMethod}</span>` : ''}
                         </div>
                         <span class="text-[8px] text-stone-300">${r.date} · ${r.accountName}</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : 'text-stone-500'} mr-1">${r.type === 'income' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
+                        <span class="text-xs font-bold ${r.type === 'income' ? 'text-green-600' : (r.type === 'extra' ? 'text-indigo-500' : 'text-stone-500')} mr-1">${r.type === 'income' ? '+' : '-'}${curMap[r.accountName] === 'USD' ? '$' : ''}${r.amount.toLocaleString()}</span>
                         <button onclick="openEditModal(${r.id}, '${r.type}')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold transition">✎</button>
                         <button onclick="deleteRecord(${r.id})" class="text-stone-300 hover:text-red-400 text-xs transition">✕</button>
                     </div>
@@ -1270,8 +1316,13 @@
             `;
             const expListEl = document.getElementById('record-list-expense');
             if (expListEl) expListEl.innerHTML = filteredRecords.filter(r => r.type === 'expense').map(renderRec).join('');
+            
             const incListEl = document.getElementById('record-list-income');
             if (incListEl) incListEl.innerHTML = filteredRecords.filter(r => r.type === 'income').map(renderRec).join('');
+
+            // 💡 渲染「多支出」紀錄列表
+            const extraListEl = document.getElementById('record-list-extra');
+            if (extraListEl) extraListEl.innerHTML = filteredRecords.filter(r => r.type === 'extra').map(renderRec).join('');
 
             const adjListEl = document.getElementById('record-list-adjustment');
             if (adjListEl) {
@@ -1345,16 +1396,21 @@
                         <h4 class="text-[10px] font-bold text-stone-400 mb-3 uppercase">月度收支總結 (${viewMonth})</h4>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl">
-                                <span class="text-xs text-green-700 font-bold">當月總收入</span>
+                                <span class="text-xs text-green-700 font-bold">當月一般收入</span>
                                 <span class="text-lg font-black text-green-600">$${Math.round(totalIncomeTWD).toLocaleString()}</span>
                             </div>
                             <div class="flex justify-between items-center p-3 bg-red-50 rounded-xl">
-                                <span class="text-xs text-red-700 font-bold">當月總支出</span>
+                                <span class="text-xs text-red-700 font-bold">當月一般支出</span>
                                 <span class="text-lg font-black text-red-400">$${Math.round(totalExpenseTWD).toLocaleString()}</span>
                             </div>
                             <div class="flex justify-between items-center p-3 ${netBalance < 0 ? 'bg-orange-50' : 'bg-amber-50'} rounded-xl border border-dashed ${netBalance < 0 ? 'border-red-200' : 'border-amber-200'}">
-                                <span class="text-xs ${netBalance < 0 ? 'text-red-600' : 'text-amber-700'} font-bold">${netBalance < 0 ? '當月超支' : '當月盈餘'}</span>
+                                <span class="text-xs ${netBalance < 0 ? 'text-red-600' : 'text-amber-700'} font-bold">${netBalance < 0 ? '當月一般超支' : '當月一般盈餘'}</span>
                                 <span class="text-lg font-black ${netBalance < 0 ? 'text-red-500' : 'text-amber-600'}">$${Math.abs(Math.round(netBalance)).toLocaleString()}</span>
+                            </div>
+                            <!-- 💡 獨立的多支出統計 -->
+                            <div class="flex justify-between items-center p-3 bg-indigo-50 rounded-xl mt-3 border border-indigo-100">
+                                <span class="text-xs text-indigo-700 font-bold">當月多支出總計 (不計入收支)</span>
+                                <span class="text-lg font-black text-indigo-500">$${Math.round(totalExtraTWD).toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -1375,7 +1431,7 @@
                                                 <span class="text-xs font-bold text-[#b8a390]">${p}%</span>
                                             </div>
                                             <div class="flex justify-between text-[10px] text-stone-400">
-                                                <span>當月支出</span>
+                                                <span>當月支出 (含一般與多支出)</span>
                                                 <span class="font-bold text-stone-500">$${Math.round(j.spent).toLocaleString()}</span>
                                             </div>
                                         </div>
@@ -1389,7 +1445,8 @@
         }
 
         function switchTab(tab) {
-            ['expense', 'income', 'trip', 'adjustment', 'stats'].forEach(t => {
+            // 💡 將 extra 加入切換表單陣列
+            ['expense', 'income', 'trip', 'extra', 'adjustment', 'stats'].forEach(t => {
                 const formEl = document.getElementById(`form-${t}`);
                 if (formEl) formEl.classList.toggle('hidden', t !== tab);
                 
@@ -1418,8 +1475,8 @@
         window.addAdjustmentRecord = addAdjustmentRecord;
         window.addAccountCloud = addAccountCloud;
         window.deleteAccountCloud = deleteAccountCloud;
-        window.openEditAccountModal = openEditAccountModal; // 💡 註冊編輯帳戶視窗功能
-        window.saveEditAccount = saveEditAccount; // 💡 註冊儲存帳戶修改功能
+        window.openEditAccountModal = openEditAccountModal; 
+        window.saveEditAccount = saveEditAccount; 
         window.addFixedExpense = addFixedExpense;
         window.deleteFixedExpense = deleteFixedExpense;
         window.openPaymentModal = openPaymentModal; 
@@ -1435,3 +1492,4 @@
     </script>
 </body>
 </html>
+
