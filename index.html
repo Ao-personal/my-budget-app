@@ -36,6 +36,9 @@
             border-color: #b8a390;  
             box-shadow: 0 0 0 3px rgba(184, 163, 144, 0.1);  
         }  
+        .locked-content {  
+            display: none;  
+        }  
         .modal-bg {  
             background-color: rgba(93, 82, 69, 0.4);  
         }  
@@ -72,338 +75,233 @@
     </style>  
 </head>  
 <body class="p-4 md:p-8">  
-    <!-- 主帳本 / 旅行帳本切換頂列 -->
-    <div id="main-app" class="max-w-6xl mx-auto">  
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">  
-            <div>  
-                <h1 class="text-3xl font-black tracking-widest text-stone-700" id="current-ledger-title">理財記帳簿</h1>  
-                <div id="sync-status" class="hidden"><span class="text-[10px] text-stone-300">雲端資料同步中...</span></div>  
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-[#fcfaf7] flex flex-col items-center justify-center p-6 text-center">  
+        <div class="mb-8">  
+            <div class="w-16 h-16 milktea-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">  
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">  
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />  
+                </svg>  
             </div>  
-            <!-- 帳本下拉式選取器 -->
-            <div class="flex items-center gap-2 bg-white p-2.5 rounded-2xl shadow-sm border border-stone-100">
-                <span class="text-[10px] font-bold text-stone-400 px-1">切換帳本:</span>
-                <select id="ledger-dropdown-select" onchange="switchLedger(this.value)" class="text-xs p-2 input-style font-bold text-stone-700 bg-[#f3ede6] cursor-pointer">
-                    <!-- 動態載入帳本選項 -->
-                </select>
-                <button onclick="toggleModal('ledger-modal')" class="text-[10px] milktea-gradient text-white px-3 py-2 rounded-xl font-bold shadow-sm whitespace-nowrap">+ 新增帳本</button>
-            </div>
+            <h2 class="text-xl font-bold text-stone-700">雲端同步記帳簿</h2>  
+            <p class="text-stone-400 text-sm mt-2">請輸入存取密碼以繼續</p>  
         </div>  
-
-        <!-- 一般記帳簿視圖 -->
-        <div id="ledger-view-standard" class="space-y-8">
-            <header class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">  
-                <div class="lg:col-span-8 flex items-center"></div>  
-                  
-                <div class="lg:col-span-4 flex flex-col gap-3 bg-white p-6 rounded-2xl shadow-sm border border-stone-100">  
-                    <div class="flex flex-col gap-1">  
-                        <label class="text-[9px] text-stone-400 font-bold px-1 uppercase tracking-tight">雲端同步網址 (Script URL)</label>  
-                        <div class="flex gap-2">  
-                            <input type="text" id="script-url" placeholder="https://script.google.com/..." class="text-[10px] p-2.5 input-style flex-grow" onchange="saveData()">  
-                            <button onclick="syncWithSheets(true)" id="sync-btn" class="text-[10px] milktea-gradient text-white px-4 py-2 rounded-xl font-bold whitespace-nowrap shadow-sm">同步</button>  
-                        </div>  
+        <div class="w-full max-w-xs space-y-4">  
+            <input type="password" id="auth-password" placeholder="預設密碼 1234" class="w-full p-4 input-style text-center tracking-widest font-bold">  
+            <button onclick="checkPassword()" class="w-full milktea-gradient text-white py-4 rounded-2xl font-bold shadow-md hover:brightness-105 transition">驗證身分</button>  
+            <div id="auth-error" class="text-red-400 text-xs hidden">密碼錯誤</div>  
+        </div>  
+    </div>  
+  
+    <div id="main-app" class="max-w-6xl mx-auto locked-content">  
+        <div class="mb-6">  
+            <h1 class="text-3xl font-black tracking-widest text-stone-700">理財記帳簿</h1>  
+            <div id="sync-status" class="hidden"><span class="text-[10px] text-stone-300">雲端資料同步中...</span></div>  
+        </div>  
+  
+        <header class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">  
+            <div class="lg:col-span-8 flex items-center"></div>  
+              
+            <div class="lg:col-span-4 flex flex-col gap-3 bg-white p-6 rounded-2xl shadow-sm border border-stone-100">  
+                <div class="flex flex-col gap-1">  
+                    <label class="text-[9px] text-stone-400 font-bold px-1 uppercase tracking-tight">雲端同步網址 (Script URL)</label>  
+                    <div class="flex gap-2">  
+                        <input type="text" id="script-url" placeholder="https://script.google.com/..." class="text-[10px] p-2.5 input-style flex-grow" onchange="saveData()">  
+                        <button onclick="syncWithSheets(true)" id="sync-btn" class="text-[10px] milktea-gradient text-white px-4 py-2 rounded-xl font-bold whitespace-nowrap shadow-sm">同步</button>  
                     </div>  
                 </div>  
-            </header>  
-      
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">  
-                <div class="lg:col-span-8">  
-                    <div class="bg-white rounded-2xl p-6 mb-8 border border-stone-100 shadow-sm">  
-                        <div class="flex justify-between items-center mb-4">  
-                            <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">帳戶資產管理 (總結)</h3>  
-                            <div class="flex items-center gap-3">  
-                                <div class="flex flex-col items-end">  
-                                    <div class="flex items-center gap-1 text-[10px] text-stone-400">  
-                                        <span>美元匯率:</span>  
-                                        <input type="number" id="usd-rate" readonly class="w-14 bg-stone-100 rounded px-1 text-stone-700 font-bold">  
-                                    </div>  
-                                </div>  
-                                <button onclick="toggleModal('account-modal')" class="text-[10px] bg-stone-100 text-stone-500 px-3 py-1 rounded-full">+ 管理帳戶</button>  
-                            </div>  
-                        </div>  
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="accounts-container"></div>  
-                        <div class="mt-4 pt-4 border-t border-stone-50 flex justify-between items-center">  
-                            <span class="text-xs text-stone-400 tracking-widest">總資產淨值 (TWD)</span>  
-                            <span class="text-xl font-black text-stone-700" id="total-assets">$0</span>  
-                        </div>  
-                    </div>  
-      
-                    <div class="flex justify-between items-center mb-4">  
-                        <h2 class="text-xl font-black text-stone-700 tracking-widest border-l-4 border-[#b8a390] pl-3">月度收支與預算</h2>  
-                        <input type="hidden" id="view-month">  
-                        <button onclick="openMonthPickerModal()" id="view-month-btn" class="p-2 px-4 input-style text-sm font-bold text-stone-600 shadow-sm flex items-center gap-2 hover:bg-white transition">  
-                            <span id="view-month-display">載入中...</span>  
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#b8a390]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>  
+                <div class="flex flex-col gap-1">  
+                    <label class="text-[9px] text-stone-400 font-bold px-1 uppercase tracking-tight">系統存取密碼</label>  
+                    <div class="relative w-full">  
+                        <input type="password" id="app-password" placeholder="輸入新密碼" class="text-[10px] p-2.5 pr-10 input-style w-full" onchange="updateGlobalSettings()">  
+                        <button onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#b8a390] transition-colors">  
+                            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">  
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />  
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />  
+                            </svg>  
                         </button>  
                     </div>  
-      
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">  
-                        <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">  
-                            <h3 class="text-xs font-bold text-stone-400 mb-4 tracking-widest uppercase flex justify-between items-center">  
-                                <span>基本預算與分配</span>  
-                                <span id="jar-total-warning" class="text-red-400 hidden text-[9px] font-bold bg-red-50 px-2 py-0.5 rounded">總和需為100%</span>  
-                            </h3>  
-                            <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-stone-50">  
-                                <div>  
-                                    <label class="block text-[10px] text-stone-400 mb-1">實拿月薪 (TWD)</label>  
-                                    <input type="number" id="salary" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">  
-                                </div>  
-                                <div>  
-                                    <label class="block text-[10px] text-stone-400 mb-1">儲蓄目標 (固定 TWD)</label>  
-                                    <input type="number" id="savings-goal" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">  
-                                </div>  
-                            </div>  
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">  
-                                <div>  
-                                    <label class="block text-[9px] text-stone-400 mb-1 text-center">必要 (%)</label>  
-                                    <input type="number" id="jar-pct-nec" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
-                                </div>  
-                                <div>  
-                                    <label class="block text-[9px] text-stone-400 mb-1 text-center">財富 (%)</label>  
-                                    <input type="number" id="jar-pct-ffa" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
-                                </div>  
-                                <div>  
-                                    <label class="block text-[9px] text-stone-400 mb-1 text-center">興趣 (%)</label>  
-                                    <input type="number" id="jar-pct-int" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
-                                </div>  
-                                <div>  
-                                    <label class="block text-[9px] text-stone-400 mb-1 text-center">享樂 (%)</label>  
-                                    <input type="number" id="jar-pct-play" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
-                                </div>  
-                            </div>  
-                        </div>  
-                        <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">  
-                            <div class="flex justify-between items-center mb-4">  
-                                <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">固定支出設定</h3>  
-                                <button onclick="toggleModal('fixed-expense-modal')" class="text-[10px] text-stone-400 hover:text-[#b8a390]">+ 新增</button>  
-                            </div>  
-                            <div id="fixed-expenses-list" class="space-y-2 max-h-32 overflow-y-auto pr-1"></div>  
-                        </div>  
-                    </div>  
-      
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8" id="jars-container"></div>  
-      
-                    <div class="milktea-gradient text-white rounded-3xl p-10 shadow-lg text-center mb-8">  
-                        <h2 class="text-sm font-medium opacity-80 mb-3 uppercase tracking-widest">本月剩餘可動用金額 (TWD)</h2>  
-                        <div class="text-7xl font-black tracking-tighter" id="monthly-total">$0</div>  
-                    </div>  
-                </div>  
-      
-                <div class="lg:col-span-4 mt-12 lg:mt-0">  
-                    <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm h-full flex flex-col">  
-                        <div class="flex mb-6 border-b border-stone-100 overflow-x-auto hide-scrollbar pb-1">  
-                            <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold border-b-2 border-[#b8a390] whitespace-nowrap">支出</button>  
-                            <button onclick="switchTab('income')" id="tab-income" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">收入</button>  
-                            <button onclick="switchTab('extra')" id="tab-extra" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">多支出</button>  
-                            <button onclick="switchTab('adjustment')" id="tab-adjustment" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">調整</button>  
-                            <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">統計</button>  
-                        </div>  
-                          
-                        <!-- 支出表單 -->  
-                        <div id="form-expense" class="space-y-4 mb-6">  
-                            <div class="flex flex-col">  
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">支出項目</label>  
-                                <input type="text" id="exp-name" placeholder="例如：午餐" class="w-full p-3 input-style text-sm">  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐</label>  
-                                    <select id="exp-category" class="w-full p-3 input-style text-[11px]"></select>  
-                                </div>  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
-                                    <input type="date" id="exp-date" class="p-3 input-style text-[11px]">  
-                                </div>  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <div class="flex justify-between items-center mb-1 ml-1">  
-                                        <label class="text-[9px] text-stone-400 font-bold">支付方式</label>  
-                                        <button onclick="openPaymentModal()" class="text-[9px] text-stone-400 hover:text-[#b8a390] transition">+ 新增</button>  
-                                    </div>  
-                                    <select id="exp-payment" class="p-3 input-style text-[11px]"></select>  
-                                </div>  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳戶</label>  
-                                    <select id="exp-account" class="p-3 input-style text-[11px]"></select>  
-                                </div>  
-                            </div>  
-                            <input type="number" id="exp-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
-                            <button onclick="addRecord('expense')" class="w-full milktea-gradient text-white py-3 rounded-xl font-bold">新增支出</button>  
-                            <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-expense"></div>  
-                        </div>  
-      
-                        <!-- 收入表單 -->  
-                        <div id="form-income" class="space-y-4 mb-6 hidden">  
-                            <div class="flex flex-col">  
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">收入來源</label>  
-                                <input type="text" id="inc-name" placeholder="來源名稱" class="w-full p-3 input-style text-sm">  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <input type="date" id="inc-date" class="p-3 input-style text-[11px]">  
-                                <select id="inc-account" class="p-3 input-style text-[11px]"></select>  
-                            </div>  
-                            <input type="number" id="inc-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
-                            <button onclick="addRecord('income')" class="w-full milktea-gradient-green text-white py-3 rounded-xl font-bold">新增收入</button>  
-                            <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-income"></div>  
-                        </div>  
-      
-                        <!-- 多支出表單 -->  
-                        <div id="form-extra" class="space-y-4 mb-6 hidden">  
-                            <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-2">  
-                                <p class="text-[10px] text-indigo-500 font-bold leading-relaxed">💡 「多支出」會扣除選擇的「帳戶」與「儲蓄罐」餘額，但不會計入當月「一般收支統計」，適合特殊專案或代墊款項。</p>  
-                            </div>  
-                            <div class="flex flex-col">  
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">多支出項目</label>  
-                                <input type="text" id="extra-name" placeholder="例如：專案採買、代墊" class="w-full p-3 input-style text-sm">  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐 (從哪扣)</label>  
-                                    <select id="extra-category" class="w-full p-3 input-style text-[11px]"></select>  
-                                </div>  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
-                                    <input type="date" id="extra-date" class="p-3 input-style text-[11px]">  
-                                </div>  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <div class="flex justify-between items-center mb-1 ml-1">  
-                                        <label class="text-[9px] text-stone-400 font-bold">支付方式</label>  
-                                        <button onclick="openPaymentModal()" class="text-[9px] text-stone-400 hover:text-[#b8a390] transition">+ 新增</button>  
-                                    </div>  
-                                    <select id="extra-payment" class="p-3 input-style text-[11px]"></select>  
-                                </div>  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳戶</label>  
-                                    <select id="extra-account" class="p-3 input-style text-[11px]"></select>  
-                                </div>  
-                            </div>  
-                            <input type="number" id="extra-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
-                            <button onclick="addRecord('extra')" class="w-full bg-indigo-400 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition shadow-sm">新增多支出</button>  
-                            <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-extra"></div>  
-                        </div>  
-      
-                        <!-- 調整表單 -->  
-                        <div id="form-adjustment" class="space-y-4 mb-6 hidden">  
-                            <div class="p-3 bg-[#f3ede6] rounded-xl border border-[#e5ddd3] mb-2">  
-                                <p class="text-[10px] text-[#8c7e6e] font-bold leading-relaxed">💡 這裡的紀錄會改變「帳戶餘額」與總資產，但不計入當月的收支統計。適合用來記錄「繳信用卡費」或「帳戶間資金轉移」。</p>  
-                            </div>  
-                            <div class="flex flex-col">  
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整項目</label>  
-                                <input type="text" id="adj-name" placeholder="例如：繳交玉山卡費" class="w-full p-3 input-style text-sm">  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整方式</label>  
-                                    <select id="adj-type" class="w-full p-3 input-style text-[11px]" onchange="toggleTransferAccount()">  
-                                        <option value="minus">減少 (支出/扣款)</option>  
-                                        <option value="plus">增加 (退款/存入)</option>  
-                                        <option value="transfer">轉帳 (帳戶互轉)</option>  
-                                    </select>  
-                                </div>  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
-                                    <input type="date" id="adj-date" class="p-3 input-style text-[11px]">  
-                                </div>  
-                            </div>  
-                            <div class="grid grid-cols-2 gap-2">  
-                                <div class="flex flex-col">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold" id="adj-source-label">操作 / 轉出帳戶</label>  
-                                    <select id="adj-account" class="w-full p-3 input-style text-[11px]"></select>  
-                                </div>  
-                                <div class="flex flex-col hidden" id="adj-target-container">  
-                                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold text-blue-500">轉入帳戶</label>  
-                                    <select id="adj-target-account" class="w-full p-3 input-style text-[11px] border-blue-200 focus:border-blue-400"></select>  
-                                </div>  
-                            </div>  
-                            <input type="number" id="adj-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
-                            <button onclick="addAdjustmentRecord()" class="w-full bg-stone-500 hover:bg-stone-600 text-white py-3 rounded-xl font-bold transition">新增調整紀錄</button>  
-                            <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-adjustment"></div>  
-                        </div>  
-      
-                        <div id="form-stats" class="space-y-4 hidden h-full overflow-y-auto pr-1">  
-                            <div id="stats-render-target" class="space-y-4"></div>  
-                        </div>  
-                    </div>  
                 </div>  
             </div>  
-        </div>
-
-        <!-- 旅行帳簿獨立視圖 -->
-        <div id="ledger-view-trip" class="space-y-8 hidden">
-            <!-- 匯率管理與總覽 Header -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-8 milktea-gradient-brown text-[#5d5245] rounded-3xl p-8 shadow-lg flex flex-col justify-between">
-                    <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold uppercase tracking-widest opacity-80" id="trip-ledger-subtitle">旅行總花費換算</span>
-                            <span class="bg-white/80 text-[#5d5245] text-[10px] font-bold px-3 py-1 rounded-full" id="trip-ledger-name-badge">旅行帳本</span>
-                        </div>
-                        <div class="text-5xl font-black tracking-tight" id="trip-total-twd-display">$0 <span class="text-sm font-bold">TWD</span></div>
-                    </div>
-                    <div class="mt-6 pt-4 border-t border-[#5d5245]/20 flex justify-between items-center text-xs font-bold">
-                        <span id="trip-record-count-badge">共 0 筆消費紀錄</span>
-                        <button onclick="deleteCurrentLedger()" class="text-red-700 hover:text-red-900 bg-white/60 hover:bg-white px-3 py-1.5 rounded-xl transition">刪除此旅行帳本</button>
-                    </div>
-                </div>
-
-                <!-- 匯率設定面板 -->
-                <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-stone-100 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">自訂旅行匯率設定 (兑 TWD)</h3>
-                            <button onclick="fetchLiveRatesForTrip()" class="text-[10px] milktea-gradient text-white px-2.5 py-1 rounded-lg font-bold shadow-sm">抓取即時匯率</button>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1" id="trip-rates-container">
-                            <!-- 動態匯率輸入框 -->
-                        </div>
-                    </div>
-                    <button onclick="saveTripRates()" class="mt-3 w-full bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-xl text-xs font-bold transition">儲存匯率變更</button>
-                </div>
-            </div>
-
-            <!-- 旅行記帳主體 -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <!-- 左側：消費明細列表 -->
-                <div class="lg:col-span-8 bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-sm font-bold text-stone-700 tracking-widest uppercase">旅行消費明細</h3>
-                        <div class="text-xs font-bold text-[#b8a390]" id="trip-category-summary-pills"></div>
-                    </div>
-                    <div id="trip-records-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                </div>
-
-                <!-- 右側：新增旅行支出表單 -->
-                <div class="lg:col-span-4">
-                    <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm space-y-4">
-                        <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">新增旅行消費</h3>
+        </header>  
+  
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">  
+            <div class="lg:col-span-8">  
+                <div class="bg-white rounded-2xl p-6 mb-8 border border-stone-100 shadow-sm">  
+                    <div class="flex justify-between items-center mb-4">  
+                        <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">帳戶資產管理 (總結)</h3>  
+                        <div class="flex items-center gap-3">  
+                            <div class="flex flex-col items-end">  
+                                <div class="flex items-center gap-1 text-[10px] text-stone-400">  
+                                    <span>美元匯率:</span>  
+                                    <input type="number" id="usd-rate" readonly class="w-14 bg-stone-100 rounded px-1 text-stone-700 font-bold">  
+                                </div>  
+                            </div>  
+                            <button onclick="toggleModal('account-modal')" class="text-[10px] bg-stone-100 text-stone-500 px-3 py-1 rounded-full">+ 管理帳戶</button>  
+                        </div>  
+                    </div>  
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="accounts-container"></div>  
+                    <div class="mt-4 pt-4 border-t border-stone-50 flex justify-between items-center">  
+                        <span class="text-xs text-stone-400 tracking-widest">總資產淨值 (TWD)</span>  
+                        <span class="text-xl font-black text-stone-700" id="total-assets">$0</span>  
+                    </div>  
+                </div>  
+  
+                <div class="flex justify-between items-center mb-4">  
+                    <h2 class="text-xl font-black text-stone-700 tracking-widest border-l-4 border-[#b8a390] pl-3">月度收支與預算</h2>  
+                    <input type="hidden" id="view-month">  
+                    <button onclick="openMonthPickerModal()" id="view-month-btn" class="p-2 px-4 input-style text-sm font-bold text-stone-600 shadow-sm flex items-center gap-2 hover:bg-white transition">  
+                        <span id="view-month-display">載入中...</span>  
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#b8a390]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>  
+                    </button>  
+                </div>  
+  
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">  
+                    <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">  
+                        <h3 class="text-xs font-bold text-stone-400 mb-4 tracking-widest uppercase flex justify-between items-center">  
+                            <span>基本預算與分配</span>  
+                            <span id="jar-total-warning" class="text-red-400 hidden text-[9px] font-bold bg-red-50 px-2 py-0.5 rounded">總和需為100%</span>  
+                        </h3>  
+                        <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-stone-50">  
+                            <div>  
+                                <label class="block text-[10px] text-stone-400 mb-1">實拿月薪 (TWD)</label>  
+                                <input type="number" id="salary" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">  
+                            </div>  
+                            <div>  
+                                <label class="block text-[10px] text-stone-400 mb-1">儲蓄目標 (固定 TWD)</label>  
+                                <input type="number" id="savings-goal" class="w-full p-2.5 input-style font-bold text-stone-700" onchange="updateGlobalSettings()">  
+                            </div>  
+                        </div>  
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">  
+                            <div>  
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">必要 (%)</label>  
+                                <input type="number" id="jar-pct-nec" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
+                            </div>  
+                            <div>  
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">財富 (%)</label>  
+                                <input type="number" id="jar-pct-ffa" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
+                            </div>  
+                            <div>  
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">興趣 (%)</label>  
+                                <input type="number" id="jar-pct-int" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
+                            </div>  
+                            <div>  
+                                <label class="block text-[9px] text-stone-400 mb-1 text-center">享樂 (%)</label>  
+                                <input type="number" id="jar-pct-play" class="w-full p-2 input-style text-center font-bold text-stone-600 text-xs" onchange="updateGlobalSettings()">  
+                            </div>  
+                        </div>  
+                    </div>  
+                    <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm">  
+                        <div class="flex justify-between items-center mb-4">  
+                            <h3 class="text-xs font-bold text-stone-400 tracking-widest uppercase">固定支出設定</h3>  
+                            <button onclick="toggleModal('fixed-expense-modal')" class="text-[10px] text-stone-400 hover:text-[#b8a390]">+ 新增</button>  
+                        </div>  
+                        <div id="fixed-expenses-list" class="space-y-2 max-h-32 overflow-y-auto pr-1"></div>  
+                    </div>  
+                </div>  
+  
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8" id="jars-container"></div>  
+  
+                <div class="milktea-gradient text-white rounded-3xl p-10 shadow-lg text-center mb-8">  
+                    <h2 class="text-sm font-medium opacity-80 mb-3 uppercase tracking-widest">本月剩餘可動用金額 (TWD)</h2>  
+                    <div class="text-7xl font-black tracking-tighter" id="monthly-total">$0</div>  
+                </div>  
+                  
+                <div class="bg-[#f3ede6] rounded-3xl p-6 border border-[#e5ddd3] shadow-sm">  
+                    <div class="flex justify-between items-center mb-4">  
+                        <h3 class="text-xs font-bold text-[#8c7e6e] tracking-widest uppercase flex items-center gap-2">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">  
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />  
+                            </svg>  
+                            本月旅行明細 (統計已排除)  
+                        </h3>  
+                        <span id="trip-total-summary" class="text-[10px] font-bold text-[#b8a390] bg-white px-3 py-1 rounded-full border border-[#e5ddd3]">旅行支出: $0</span>  
+                    </div>  
+                    <div id="trip-records-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>  
+                </div>  
+            </div>  
+  
+            <div class="lg:col-span-4 mt-12 lg:mt-0">  
+                <div class="bg-white rounded-2xl p-6 border border-stone-100 shadow-sm h-full flex flex-col">  
+                    <div class="flex mb-6 border-b border-stone-100 overflow-x-auto hide-scrollbar pb-1">  
+                        <button onclick="switchTab('expense')" id="tab-expense" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold border-b-2 border-[#b8a390] whitespace-nowrap">支出</button>  
+                        <button onclick="switchTab('income')" id="tab-income" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">收入</button>  
+                        <button onclick="switchTab('trip')" id="tab-trip" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">旅行</button>  
+                        <button onclick="switchTab('extra')" id="tab-extra" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">多支出</button>  
+                        <button onclick="switchTab('adjustment')" id="tab-adjustment" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">調整</button>  
+                        <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn min-w-[50px] flex-1 py-2 text-[11px] font-bold text-stone-300 whitespace-nowrap">統計</button>  
+                    </div>  
+                      
+                    <!-- 支出表單 -->  
+                    <div id="form-expense" class="space-y-4 mb-6">  
                         <div class="flex flex-col">  
-                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">消費項目</label>  
-                            <input type="text" id="trip-item-name" placeholder="例如：計程車、黑豬肉燒烤" class="w-full p-3 input-style text-sm">  
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">支出項目</label>  
+                            <input type="text" id="exp-name" placeholder="例如：午餐" class="w-full p-3 input-style text-sm">  
                         </div>  
                         <div class="grid grid-cols-2 gap-2">  
-                            <div class="flex flex-col">
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>
-                                <input type="date" id="trip-date" class="p-3 input-style text-[11px]">  
-                            </div>
-                            <div class="flex flex-col">
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">消費類別</label>
-                                <select id="trip-item-category" class="p-3 input-style text-[11px]">  
-                                    <option value="飲食">飲食</option>  
-                                    <option value="交通">交通</option>  
-                                    <option value="住宿">住宿</option>  
-                                    <option value="購物">購物</option>  
-                                    <option value="機票">機票</option>  
-                                    <option value="門票">門票</option>
-                                    <option value="其他">其他</option>  
-                                </select>  
-                            </div>
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐</label>  
+                                <select id="exp-category" class="w-full p-3 input-style text-[11px]"></select>  
+                            </div>  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
+                                <input type="date" id="exp-date" class="p-3 input-style text-[11px]">  
+                            </div>  
                         </div>  
                         <div class="grid grid-cols-2 gap-2">  
-                            <div class="flex flex-col">
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">幣別</label>
-                                <select id="trip-currency" class="p-3 input-style text-[11px] font-bold text-stone-600">  
+                            <div class="flex flex-col">  
+                                <div class="flex justify-between items-center mb-1 ml-1">  
+                                    <label class="text-[9px] text-stone-400 font-bold">支付方式</label>  
+                                    <button onclick="openPaymentModal()" class="text-[9px] text-stone-400 hover:text-[#b8a390] transition">+ 新增</button>  
+                                </div>  
+                                <select id="exp-payment" class="p-3 input-style text-[11px]"></select>  
+                            </div>  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳戶</label>  
+                                <select id="exp-account" class="p-3 input-style text-[11px]"></select>  
+                            </div>  
+                        </div>  
+                        <input type="number" id="exp-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
+                        <button onclick="addRecord('expense')" class="w-full milktea-gradient text-white py-3 rounded-xl font-bold">新增支出</button>  
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-expense"></div>  
+                    </div>  
+  
+                    <!-- 收入表單 -->  
+                    <div id="form-income" class="space-y-4 mb-6 hidden">  
+                        <div class="flex flex-col">  
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">收入來源</label>  
+                            <input type="text" id="inc-name" placeholder="來源名稱" class="w-full p-3 input-style text-sm">  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <input type="date" id="inc-date" class="p-3 input-style text-[11px]">  
+                            <select id="inc-account" class="p-3 input-style text-[11px]"></select>  
+                        </div>  
+                        <input type="number" id="inc-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
+                        <button onclick="addRecord('income')" class="w-full milktea-gradient-green text-white py-3 rounded-xl font-bold">新增收入</button>  
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-income"></div>  
+                    </div>  
+  
+                    <!-- 旅行表單 -->  
+                    <div id="form-trip" class="space-y-4 mb-6 hidden">  
+                        <div class="flex flex-col">  
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">旅行內容</label>  
+                            <input type="text" id="trip-item-name" placeholder="旅行項目" class="w-full p-3 input-style text-sm">  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <input type="date" id="trip-date" class="p-3 input-style text-[11px]">  
+                            <select id="trip-item-category" class="p-3 input-style text-[11px]">  
+                                <option value="飲食">飲食</option>  
+                                <option value="交通">交通</option>  
+                                <option value="住宿">住宿</option>  
+                                <option value="購物">購物</option>  
+                                <option value="機票">機票</option>  
+                                <option value="其他">其他</option>  
+                            </select>  
+                        </div>  
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">  
+                            <select id="trip-item-account" class="p-3 input-style text-[11px]"></select>  
+                              
+                            <div class="flex gap-1">  
+                                <select id="trip-currency" class="w-2/5 p-3 input-style text-[10px] font-bold text-stone-600 border-r-0 rounded-r-none">  
                                     <option value="TWD">TWD</option>  
                                     <option value="JPY">JPY</option>  
                                     <option value="USD">USD</option>  
@@ -412,47 +310,96 @@
                                     <option value="HKD">HKD</option>  
                                     <option value="THB">THB</option>  
                                 </select>  
-                            </div>
-                            <div class="flex flex-col">
-                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">原幣金額</label>
-                                <input type="number" id="trip-item-amount" placeholder="金額" class="p-3 input-style text-sm font-bold">  
-                            </div>
+                                <input type="number" id="trip-item-amount" placeholder="金額" class="w-3/5 p-3 input-style text-sm font-bold rounded-l-none">  
+                            </div>  
                         </div>  
-                        <div class="flex flex-col">
-                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">記錄帳戶 (僅作記帳標籤)</label>
-                            <select id="trip-item-account" class="p-3 input-style text-[11px]"></select>  
-                        </div>
-                        <button onclick="addTripRecord()" class="w-full milktea-gradient-brown text-[#5d5245] py-3 rounded-xl font-bold transition hover:brightness-105">新增旅行消費紀錄</button>  
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>  
-
-    <!-- Modals -->  
-    <div id="ledger-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 z-50 hidden">  
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">  
-            <h3 class="text-lg font-bold text-stone-700 mb-4">新增帳本</h3>  
-            <div class="space-y-4">  
-                <div class="flex flex-col">
-                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳本名稱</label>
-                    <input type="text" id="new-ledger-name" placeholder="例如：2026 釜山自由行" class="w-full p-3 input-style">  
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳本類型</label>
-                    <select id="new-ledger-type" class="w-full p-3 input-style text-xs font-bold">
-                        <option value="trip">✈️ 旅行帳本 (支援多外幣、匯率換算)</option>
-                        <option value="standard">💰 一般理財帳本 (資產、收支、儲蓄罐)</option>
-                    </select>
-                </div>
-                <div class="flex gap-2 pt-2">  
-                    <button onclick="toggleModal('ledger-modal')" class="flex-1 py-3 text-stone-400">取消</button>  
-                    <button onclick="createNewLedger()" class="flex-1 milktea-gradient text-white py-3 rounded-xl font-bold">建立帳本</button>  
+                        <button onclick="addTripRecord()" class="w-full milktea-gradient-brown text-[#5d5245] py-3 rounded-xl font-bold">新增旅行紀錄</button>  
+                    </div>  
+  
+                    <!-- 多支出表單 -->  
+                    <div id="form-extra" class="space-y-4 mb-6 hidden">  
+                        <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-2">  
+                            <p class="text-[10px] text-indigo-500 font-bold leading-relaxed">💡 「多支出」會扣除選擇的「帳戶」與「儲蓄罐」餘額，但不會計入當月「一般收支統計」，適合特殊專案或代墊款項。</p>  
+                        </div>  
+                        <div class="flex flex-col">  
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">多支出項目</label>  
+                            <input type="text" id="extra-name" placeholder="例如：專案採買、代墊" class="w-full p-3 input-style text-sm">  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">儲蓄罐 (從哪扣)</label>  
+                                <select id="extra-category" class="w-full p-3 input-style text-[11px]"></select>  
+                            </div>  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
+                                <input type="date" id="extra-date" class="p-3 input-style text-[11px]">  
+                            </div>  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <div class="flex flex-col">  
+                                <div class="flex justify-between items-center mb-1 ml-1">  
+                                    <label class="text-[9px] text-stone-400 font-bold">支付方式</label>  
+                                    <button onclick="openPaymentModal()" class="text-[9px] text-stone-400 hover:text-[#b8a390] transition">+ 新增</button>  
+                                </div>  
+                                <select id="extra-payment" class="p-3 input-style text-[11px]"></select>  
+                            </div>  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">帳戶</label>  
+                                <select id="extra-account" class="p-3 input-style text-[11px]"></select>  
+                            </div>  
+                        </div>  
+                        <input type="number" id="extra-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
+                        <button onclick="addRecord('extra')" class="w-full bg-indigo-400 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition shadow-sm">新增多支出</button>  
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-extra"></div>  
+                    </div>  
+  
+                    <!-- 調整表單 -->  
+                    <div id="form-adjustment" class="space-y-4 mb-6 hidden">  
+                        <div class="p-3 bg-[#f3ede6] rounded-xl border border-[#e5ddd3] mb-2">  
+                            <p class="text-[10px] text-[#8c7e6e] font-bold leading-relaxed">💡 這裡的紀錄會改變「帳戶餘額」與總資產，但不計入當月的收支統計。適合用來記錄「繳信用卡費」或「帳戶間資金轉移」。</p>  
+                        </div>  
+                        <div class="flex flex-col">  
+                            <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整項目</label>  
+                            <input type="text" id="adj-name" placeholder="例如：繳交玉山卡費" class="w-full p-3 input-style text-sm">  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整方式</label>  
+                                <select id="adj-type" class="w-full p-3 input-style text-[11px]" onchange="toggleTransferAccount()">  
+                                    <option value="minus">減少 (支出/扣款)</option>  
+                                    <option value="plus">增加 (退款/存入)</option>  
+                                    <option value="transfer">轉帳 (帳戶互轉)</option>  
+                                </select>  
+                            </div>  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
+                                <input type="date" id="adj-date" class="p-3 input-style text-[11px]">  
+                            </div>  
+                        </div>  
+                        <div class="grid grid-cols-2 gap-2">  
+                            <div class="flex flex-col">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold" id="adj-source-label">操作 / 轉出帳戶</label>  
+                                <select id="adj-account" class="w-full p-3 input-style text-[11px]"></select>  
+                            </div>  
+                            <div class="flex flex-col hidden" id="adj-target-container">  
+                                <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold text-blue-500">轉入帳戶</label>  
+                                <select id="adj-target-account" class="w-full p-3 input-style text-[11px] border-blue-200 focus:border-blue-400"></select>  
+                            </div>  
+                        </div>  
+                        <input type="number" id="adj-amount" placeholder="金額" class="w-full p-3 input-style text-sm font-bold">  
+                        <button onclick="addAdjustmentRecord()" class="w-full bg-stone-500 hover:bg-stone-600 text-white py-3 rounded-xl font-bold transition">新增調整紀錄</button>  
+                        <div class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 mt-4" id="record-list-adjustment"></div>  
+                    </div>  
+  
+                    <div id="form-stats" class="space-y-4 hidden h-full overflow-y-auto pr-1">  
+                        <div id="stats-render-target" class="space-y-4"></div>  
+                    </div>  
                 </div>  
             </div>  
         </div>  
-    </div>
-
+    </div>  
+  
+    <!-- Modals -->  
     <div id="account-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 z-50 hidden">  
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">  
             <h3 class="text-lg font-bold text-stone-700 mb-4">帳戶管理</h3>  
@@ -561,74 +508,85 @@
         </div>  
     </div>  
   
-    <!-- 編輯紀錄彈出視窗 -->  
+    <!-- 💡 編輯紀錄彈出視窗 (全面升級版) -->  
     <div id="edit-record-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 z-50 hidden">  
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl max-h-[90vh] overflow-y-auto">  
             <h3 class="text-lg font-bold text-stone-700 mb-4">編輯紀錄</h3>  
             <div class="space-y-4">  
+                <!-- 名稱 (通用) -->
                 <div class="flex flex-col">  
                     <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">項目名稱</label>  
                     <input type="text" id="edit-name" class="w-full p-3 input-style text-sm">  
-                </div>  
-                <div class="grid grid-cols-2 gap-2">  
+                </div>
+                
+                <!-- 日期與金額 (通用) -->
+                <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col">  
                         <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">日期</label>  
                         <input type="date" id="edit-date" class="w-full p-3 input-style text-[11px]">  
-                    </div>  
+                    </div>
                     <div class="flex flex-col">  
-                        <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">金額</label>  
+                        <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">修改金額</label>  
                         <input type="number" id="edit-amount" class="w-full p-3 input-style font-bold text-stone-700">  
-                    </div>  
-                </div>  
+                    </div>
+                </div>
 
-                <!-- 旅行專用編輯欄位 -->
+                <!-- 調整專用：調整方式 -->
+                <div class="flex flex-col hidden" id="edit-adj-type-container">
+                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整方式</label>
+                    <select id="edit-adj-type" class="w-full p-3 input-style text-[11px]" onchange="toggleEditTransferAccount()">
+                        <option value="minus">減少 (支出/扣款)</option>
+                        <option value="plus">增加 (退款/存入)</option>
+                        <option value="transfer">轉帳 (帳戶互轉)</option>
+                    </select>
+                </div>
+                
+                <!-- 旅行專用：旅行類別與幣別 -->
                 <div class="grid grid-cols-2 gap-2 hidden" id="edit-trip-container">
                     <div class="flex flex-col">
                         <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">旅行類別</label>
                         <select id="edit-trip-category" class="w-full p-3 input-style text-[11px]">
-                            <option value="飲食">飲食</option>  
-                            <option value="交通">交通</option>  
-                            <option value="住宿">住宿</option>  
-                            <option value="購物">購物</option>  
-                            <option value="機票">機票</option>  
-                            <option value="門票">門票</option>
+                            <option value="飲食">飲食</option>
+                            <option value="交通">交通</option>
+                            <option value="住宿">住宿</option>
+                            <option value="購物">購物</option>
+                            <option value="機票">機票</option>
                             <option value="其他">其他</option>
                         </select>
                     </div>
                     <div class="flex flex-col">
                         <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">幣別</label>
                         <select id="edit-trip-currency" class="w-full p-3 input-style text-[11px]">
-                            <option value="TWD">TWD</option>  
-                            <option value="JPY">JPY</option>  
-                            <option value="USD">USD</option>  
-                            <option value="KRW">KRW</option>  
-                            <option value="EUR">EUR</option>  
-                            <option value="HKD">HKD</option>  
+                            <option value="TWD">TWD</option>
+                            <option value="JPY">JPY</option>
+                            <option value="USD">USD</option>
+                            <option value="KRW">KRW</option>
+                            <option value="EUR">EUR</option>
+                            <option value="HKD">HKD</option>
                             <option value="THB">THB</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="flex flex-col hidden" id="edit-adj-type-container">  
-                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">調整方式</label>  
-                    <select id="edit-adj-type" class="w-full p-3 input-style text-[11px]" onchange="toggleEditTransferAccount()">  
-                        <option value="minus">減少 (支出/扣款)</option>  
-                        <option value="plus">增加 (退款/存入)</option>  
-                        <option value="transfer">轉帳 (帳戶互轉)</option>  
-                    </select>  
-                </div>  
+                <!-- 支出/多支出專用：儲蓄罐 -->  
                 <div class="flex flex-col hidden" id="edit-category-container">  
                     <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">所屬儲蓄罐</label>  
                     <select id="edit-category" class="w-full p-3 input-style text-[11px]"></select>  
                 </div>  
+  
+                <!-- 帳戶 -->
                 <div class="flex flex-col">  
-                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold" id="edit-account-label">帳戶</label>  
+                    <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold" id="edit-account-label">帳戶 / 轉出帳戶</label>  
                     <select id="edit-account" class="w-full p-3 input-style text-[11px]"></select>  
                 </div>  
+                  
+                <!-- 調整專用：轉入帳戶 -->
                 <div class="flex flex-col hidden" id="edit-adj-target-container">  
                     <label class="text-[9px] text-blue-400 mb-1 ml-1 font-bold">轉入帳戶</label>  
                     <select id="edit-adj-target-account" class="w-full p-3 input-style text-[11px] border-blue-200"></select>  
                 </div>  
+  
+                <!-- 支出/多支出專用：支付方式 -->
                 <div class="flex flex-col hidden" id="edit-payment-container">  
                     <label class="text-[9px] text-stone-400 mb-1 ml-1 font-bold">支付方式</label>  
                     <select id="edit-payment" class="w-full p-3 input-style text-[11px]"></select>  
@@ -646,26 +604,16 @@
     </div>  
   
     <script>  
-        const STORAGE_KEY = 'BUDGET_MASTER_V3_MULTI_LEDGER';  
+        const STORAGE_KEY = 'BUDGET_MASTER_V2';  
           
         let tempPickerYear = new Date().getFullYear();  
         let tempPickerMonth = new Date().getMonth() + 1;  
   
         window.state = {  
-            currentLedgerId: 'default-standard',
-            ledgers: [
-                { id: 'default-standard', name: '我的日常理財帳本', type: 'standard' }
-            ],
-            recordsMap: { 'default-standard': [] },
-            tripRecordsMap: { 'default-standard': [] },
-            tripRatesMap: { 
-                'default-standard': { JPY: 0.21, USD: 32.5, KRW: 0.024, EUR: 35.0, HKD: 4.15, THB: 0.95, TWD: 1.0 } 
-            },
-            accounts: [
-                { name: '現金', balance: 5000, currency: 'TWD', excludeFromTotal: false },
-                { name: 'CUBE卡', balance: 0, currency: 'TWD', excludeFromTotal: false }
-            ],  
+            records: [],  
+            accounts: [],  
             fixedExpenses: [],  
+            tripRecords: [],   
             settings: {   
                 salary: 45000,   
                 savingsGoal: 10000,   
@@ -715,51 +663,45 @@
                 }  
             } catch (e) { console.error("獲取匯率失敗", e); }  
         }  
-
-        async function fetchLiveRatesForTrip() {
-            try {
-                const res = await fetch('https://open.er-api.com/v6/latest/TWD');
-                const data = await res.json();
-                if (data?.rates) {
-                    const lId = window.state.currentLedgerId;
-                    if (!window.state.tripRatesMap[lId]) window.state.tripRatesMap[lId] = {};
-                    
-                    const twdRates = data.rates;
-                    ['JPY', 'USD', 'KRW', 'EUR', 'HKD', 'THB'].forEach(curr => {
-                        if (twdRates[curr]) {
-                            const val = 1 / twdRates[curr];
-                            window.state.tripRatesMap[lId][curr] = parseFloat(val.toFixed(4));
-                        }
-                    });
-                    window.state.tripRatesMap[lId]['TWD'] = 1.0;
-                    saveData();
-                    updateUI();
-                    alert("已成功從即時市場抓取最新匯率！");
-                }
-            } catch (e) {
-                alert("抓取即時匯率失敗，請檢查網路連線。");
-            }
-        }
+  
+        function checkPassword() {  
+            const input = document.getElementById('auth-password').value;  
+            const correctPwd = window.state.settings.password || "1234";  
+            if (input === correctPwd) {  
+                document.getElementById('auth-screen').style.display = 'none';  
+                document.getElementById('main-app').classList.remove('locked-content');  
+            } else {  
+                document.getElementById('auth-error').classList.remove('hidden');  
+            }  
+        }  
+  
+        function togglePasswordVisibility() {  
+            const pwdInput = document.getElementById('app-password');  
+            const eyeIcon = document.getElementById('eye-icon');  
+            if (pwdInput.type === 'password') {  
+                pwdInput.type = 'text';  
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878l-4.242-4.242m4.242 4.242L5.232 5.232" />`;  
+            } else {  
+                pwdInput.type = 'password';  
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;  
+            }  
+        }  
   
         function loadLocalData() {  
             const saved = localStorage.getItem(STORAGE_KEY);  
             if (saved) {  
-                try {
-                    const parsed = JSON.parse(saved);  
-                    window.state = { ...window.state, ...parsed };  
-                } catch(e) {}
+                const parsed = JSON.parse(saved);  
+                window.state = { ...window.state, ...parsed };  
                   
                 if (!window.state.settings) window.state.settings = {};  
+                if (!window.state.settings.password) window.state.settings.password = "1234";  
                 if (!window.state.settings.paymentMethods) window.state.settings.paymentMethods = ['現金', 'CUBE', 'LinePay', '銀行轉帳'];  
                 if (!window.state.settings.jars) window.state.settings.jars = { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };  
-                if (!window.state.ledgers) window.state.ledgers = [{ id: 'default-standard', name: '我的日常理財帳本', type: 'standard' }];
-                if (!window.state.recordsMap) window.state.recordsMap = { 'default-standard': [] };
-                if (!window.state.tripRecordsMap) window.state.tripRecordsMap = { 'default-standard': [] };
-                if (!window.state.tripRatesMap) window.state.tripRatesMap = {};
                   
                 if (document.getElementById('script-url')) document.getElementById('script-url').value = window.state.scriptUrl || '';  
                 if (document.getElementById('salary')) document.getElementById('salary').value = window.state.settings.salary || 45000;  
                 if (document.getElementById('savings-goal')) document.getElementById('savings-goal').value = window.state.settings.savingsGoal || 10000;  
+                if (document.getElementById('app-password')) document.getElementById('app-password').value = window.state.settings.password;  
                   
                 if (document.getElementById('jar-pct-nec')) document.getElementById('jar-pct-nec').value = window.state.settings.jars.NEC;  
                 if (document.getElementById('jar-pct-ffa')) document.getElementById('jar-pct-ffa').value = window.state.settings.jars.FFA;  
@@ -775,51 +717,6 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(window.state));  
             updateUI();  
         }  
-
-        function switchLedger(id) {
-            window.state.currentLedgerId = id;
-            saveData();
-        }
-
-        async function createNewLedger() {
-            const nameEl = document.getElementById('new-ledger-name');
-            const typeEl = document.getElementById('new-ledger-type');
-            const name = nameEl ? nameEl.value.trim() : '';
-            const type = typeEl ? typeEl.value : 'standard';
-
-            if (!name) {
-                alert('請輸入帳本名稱！');
-                return;
-            }
-
-            const newId = 'ledger_' + Date.now();
-            window.state.ledgers.push({ id: newId, name, type });
-            window.state.recordsMap[newId] = [];
-            window.state.tripRecordsMap[newId] = [];
-            window.state.tripRatesMap[newId] = { JPY: 0.21, USD: 32.5, KRW: 0.024, EUR: 35.0, HKD: 4.15, THB: 0.95, TWD: 1.0 };
-
-            window.state.currentLedgerId = newId;
-            nameEl.value = '';
-            toggleModal('ledger-modal');
-            saveData();
-        }
-
-        async function deleteCurrentLedger() {
-            if (window.state.ledgers.length <= 1) {
-                alert('必須至少保留一個帳本！');
-                return;
-            }
-            if (!confirm('確定要刪除這個帳本嗎？其中的所有消費與紀錄將會被清除。')) return;
-
-            const currId = window.state.currentLedgerId;
-            window.state.ledgers = window.state.ledgers.filter(l => l.id !== currId);
-            delete window.state.recordsMap[currId];
-            delete window.state.tripRecordsMap[currId];
-            delete window.state.tripRatesMap[currId];
-
-            window.state.currentLedgerId = window.state.ledgers[0].id;
-            saveData();
-        }
   
         async function pushAction(data) {  
             if (!window.state.scriptUrl) return;  
@@ -837,6 +734,19 @@
                 const cloud = await res.json();  
                 if (cloud) {  
                     window.state = { ...window.state, ...cloud };  
+                    if (!window.state.settings) window.state.settings = {};  
+                    if (!window.state.settings.paymentMethods) window.state.settings.paymentMethods = ['現金', 'CUBE', 'LinePay', '銀行轉帳'];  
+                    if (!window.state.settings.jars) window.state.settings.jars = { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };  
+  
+                    if (document.getElementById('salary')) document.getElementById('salary').value = window.state.settings.salary || 45000;  
+                    if (document.getElementById('savings-goal')) document.getElementById('savings-goal').value = window.state.settings.savingsGoal || 10000;  
+                    if (document.getElementById('app-password')) document.getElementById('app-password').value = window.state.settings.password || "1234";  
+                      
+                    if (document.getElementById('jar-pct-nec')) document.getElementById('jar-pct-nec').value = window.state.settings.jars.NEC;  
+                    if (document.getElementById('jar-pct-ffa')) document.getElementById('jar-pct-ffa').value = window.state.settings.jars.FFA;  
+                    if (document.getElementById('jar-pct-int')) document.getElementById('jar-pct-int').value = window.state.settings.jars.INT;  
+                    if (document.getElementById('jar-pct-play')) document.getElementById('jar-pct-play').value = window.state.settings.jars.PLAY;  
+  
                     saveData();  
                     if (showNotify) alert("同步成功！");  
                 }  
@@ -922,6 +832,8 @@
             window.state.settings.paymentMethods.push(newMethod);  
             saveData();  
             toggleModal('payment-method-modal');  
+              
+            await pushAction({ action: 'updateSettings', data: window.state.settings });  
         }  
   
         function toggleTransferAccount() {  
@@ -932,8 +844,9 @@
             } else {  
                 targetContainer.classList.add('hidden');  
             }  
-        }  
+        }
 
+        // 新增：編輯視窗內的調整方式切換
         function toggleEditTransferAccount() {
             const type = document.getElementById('edit-adj-type').value;
             const targetContainer = document.getElementById('edit-adj-target-container');
@@ -946,30 +859,32 @@
             }
         }
   
+        // 💡 開啟編輯彈窗，動態重組所有欄位  
         function openEditModal(id, type) {  
-            const currLedgerId = window.state.currentLedgerId;
-            const currentLedger = window.state.ledgers.find(l => l.id === currLedgerId);
-            const isTrip = (currentLedger && currentLedger.type === 'trip') || type === 'trip';  
-
-            const list = isTrip ? (window.state.tripRecordsMap[currLedgerId] || []) : (window.state.recordsMap[currLedgerId] || []);  
+            const isTrip = type === 'trip';  
+            const list = isTrip ? window.state.tripRecords : window.state.records;  
             const record = list.find(r => r.id == id);  
             if (!record) return;  
   
+            // 載入共通內容
             document.getElementById('edit-name').value = isTrip ? record.tripName : record.name;
             document.getElementById('edit-date').value = record.date;
             document.getElementById('edit-amount').value = record.amount;
 
+            // 載入帳戶選單
             const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');  
             document.getElementById('edit-account').innerHTML = accOptions;  
-            document.getElementById('edit-account').value = record.accountName || (window.state.accounts[0] ? window.state.accounts[0].name : '');  
+            document.getElementById('edit-account').value = record.accountName;  
             document.getElementById('edit-adj-target-account').innerHTML = accOptions;
   
+            // 取得所有動態容器
             const paymentContainer = document.getElementById('edit-payment-container');  
             const categoryContainer = document.getElementById('edit-category-container');
             const adjTypeContainer = document.getElementById('edit-adj-type-container');
             const targetAccContainer = document.getElementById('edit-adj-target-container');  
             const tripContainer = document.getElementById('edit-trip-container');
   
+            // 先隱藏所有特殊容器
             paymentContainer.classList.add('hidden');  
             categoryContainer.classList.add('hidden');  
             adjTypeContainer.classList.add('hidden');
@@ -977,11 +892,7 @@
             tripContainer.classList.add('hidden');
             document.getElementById('edit-account-label').innerText = '帳戶';
 
-            if (isTrip) {
-                tripContainer.classList.remove('hidden');
-                document.getElementById('edit-trip-category').value = record.category || '飲食';
-                document.getElementById('edit-trip-currency').value = record.currency || 'TWD';
-            } else if (type === 'expense' || type === 'extra') {  
+            if (type === 'expense' || type === 'extra') {  
                 const paymentMethods = window.state.settings.paymentMethods || ['現金', 'CUBE', 'LinePay', '銀行轉帳'];  
                 document.getElementById('edit-payment').innerHTML = paymentMethods.map(p => `<option value="${p}">${p}</option>`).join('');  
                 document.getElementById('edit-payment').value = record.paymentMethod || paymentMethods[0];  
@@ -1006,10 +917,14 @@
                     targetAccContainer.classList.remove('hidden');  
                     document.getElementById('edit-account-label').innerText = '轉出帳戶';  
                 }  
-            }  
+            } else if (type === 'trip') {
+                tripContainer.classList.remove('hidden');
+                document.getElementById('edit-trip-category').value = record.category || '飲食';
+                document.getElementById('edit-trip-currency').value = record.currency || 'TWD';
+            }
   
             document.getElementById('edit-record-id').value = id;  
-            document.getElementById('edit-record-type').value = isTrip ? 'trip' : type;  
+            document.getElementById('edit-record-type').value = type;  
   
             toggleModal('edit-record-modal');  
         }  
@@ -1017,33 +932,40 @@
         async function saveEditRecord() {  
             const id = document.getElementById('edit-record-id').value;  
             const type = document.getElementById('edit-record-type').value;  
-            const currLedgerId = window.state.currentLedgerId;
             
             const newName = document.getElementById('edit-name').value.trim();
             const newDate = document.getElementById('edit-date').value;
             const newAmt = parseFloat(document.getElementById('edit-amount').value);  
             const newAcc = document.getElementById('edit-account').value;  
   
-            if (!newName) { alert('請輸入項目名稱！'); return; }
-            if (isNaN(newAmt) || newAmt <= 0) { alert('請輸入有效的金額！'); return; }  
-            if (!newDate) { alert('請選擇有效的日期！'); return; }
+            if (!newName) {
+                alert('請輸入項目名稱！');
+                return;
+            }
+            if (isNaN(newAmt) || newAmt <= 0) {  
+                alert('請輸入有效的金額 (須大於 0)！');  
+                return;  
+            }  
+            if (!newDate) {
+                alert('請選擇有效的日期！');
+                return;
+            }
   
             const isTrip = type === 'trip';  
-            const list = isTrip ? (window.state.tripRecordsMap[currLedgerId] || []) : (window.state.recordsMap[currLedgerId] || []);  
+            const list = isTrip ? window.state.tripRecords : window.state.records;  
             const index = list.findIndex(r => r.id == id);  
             if (index === -1) return;  
   
             const oldRecord = list[index];  
-            const newRecord = { ...oldRecord, amount: newAmt, accountName: newAcc, date: newDate };  
+            const newRecord = { ...oldRecord, id: Date.now(), amount: newAmt, accountName: newAcc, date: newDate };  
 
             if (isTrip) {
                 newRecord.tripName = newName;
-                newRecord.category = document.getElementById('edit-trip-category').value;
-                newRecord.currency = document.getElementById('edit-trip-currency').value;
             } else {
                 newRecord.name = newName;
             }
   
+            // 寫入各類型的專屬資料
             if (type === 'expense' || type === 'extra') {  
                 newRecord.paymentMethod = document.getElementById('edit-payment').value;  
                 newRecord.category = document.getElementById('edit-category').value;  
@@ -1053,16 +975,45 @@
 
                 if (newAdjType === 'transfer') {  
                     const newTargetAcc = document.getElementById('edit-adj-target-account').value;  
-                    if (newAcc === newTargetAcc) { alert('轉出與轉入帳戶不能相同！'); return; }  
+                    if (newAcc === newTargetAcc) {  
+                        alert('轉出與轉入帳戶不能相同！');  
+                        return;  
+                    }  
                     newRecord.targetAccountName = newTargetAcc;  
                 } else {
-                    delete newRecord.targetAccountName; 
+                    delete newRecord.targetAccountName; // 確保切換回增減時移除轉入帳戶資訊
                 }
+            } else if (type === 'trip') {
+                newRecord.category = document.getElementById('edit-trip-category').value;
+                newRecord.currency = document.getElementById('edit-trip-currency').value;
+            }
+  
+            const isChanged = JSON.stringify({ ...oldRecord, id: 0 }) !== JSON.stringify({ ...newRecord, id: 0 });
+  
+            if (!isChanged) {  
+                toggleModal('edit-record-modal');  
+                return;   
             }  
   
+            const oldId = oldRecord.id;  
             list[index] = newRecord;  
             saveData();   
             toggleModal('edit-record-modal');  
+  
+            if (window.state.scriptUrl) {  
+                try {  
+                    await fetch(window.state.scriptUrl, {   
+                        method: 'POST', mode: 'no-cors',   
+                        body: JSON.stringify({ action: isTrip ? 'addTripRecord' : 'addRecord', data: newRecord })   
+                    });  
+                    await fetch(window.state.scriptUrl, {   
+                        method: 'POST', mode: 'no-cors',   
+                        body: JSON.stringify({ action: 'deleteRecord', data: { id: oldId, type: isTrip ? 'trip' : 'normal' } })   
+                    });  
+                } catch (e) {  
+                    console.error("編輯同步失敗", e);  
+                }  
+            }  
         }  
   
         async function addRecord(type) {  
@@ -1089,11 +1040,9 @@
                 accountName: acc,  
                 paymentMethod: (type === 'expense' || type === 'extra') ? document.getElementById(`${p}-payment`).value : null  
             };  
-            
-            const currLedgerId = window.state.currentLedgerId;
-            if (!window.state.recordsMap[currLedgerId]) window.state.recordsMap[currLedgerId] = [];
-            window.state.recordsMap[currLedgerId].unshift(record);  
+            window.state.records.unshift(record);  
             saveData();  
+            await pushAction({ action: 'addRecord', data: record });  
             nameInput.value = '';  
             amountInput.value = '';  
         }  
@@ -1119,10 +1068,9 @@
               
             const item = { id: Date.now(), type: 'trip', tripName: name, category: cat, amount, accountName: acc, date, currency };  
               
-            const currLedgerId = window.state.currentLedgerId;
-            if (!window.state.tripRecordsMap[currLedgerId]) window.state.tripRecordsMap[currLedgerId] = [];
-            window.state.tripRecordsMap[currLedgerId].unshift(item);  
+            window.state.tripRecords.unshift(item);  
             saveData();  
+            await pushAction({ action: 'addTripRecord', data: item });  
             nameInput.value = '';  
             amountInput.value = '';  
         }  
@@ -1156,28 +1104,22 @@
                 accountName: acc  
             };  
   
-            if (adjType === 'transfer') record.targetAccountName = targetAcc;  
+            if (adjType === 'transfer') {  
+                record.targetAccountName = targetAcc;  
+            }  
   
-            const currLedgerId = window.state.currentLedgerId;
-            if (!window.state.recordsMap[currLedgerId]) window.state.recordsMap[currLedgerId] = [];
-            window.state.recordsMap[currLedgerId].unshift(record);  
+            window.state.records.unshift(record);  
             saveData();  
+            await pushAction({ action: 'addRecord', data: record });  
             nameInput.value = '';  
             amountInput.value = '';  
         }  
   
         async function deleteRecord(id, type = 'normal') {  
-            const currLedgerId = window.state.currentLedgerId;
-            if (type === 'trip') {
-                if (window.state.tripRecordsMap[currLedgerId]) {
-                    window.state.tripRecordsMap[currLedgerId] = window.state.tripRecordsMap[currLedgerId].filter(t => t.id != id);
-                }
-            } else {
-                if (window.state.recordsMap[currLedgerId]) {
-                    window.state.recordsMap[currLedgerId] = window.state.recordsMap[currLedgerId].filter(r => r.id != id);
-                }
-            }  
+            if (type === 'trip') window.state.tripRecords = window.state.tripRecords.filter(t => t.id != id);  
+            else window.state.records = window.state.records.filter(r => r.id != id);  
             saveData();  
+            await pushAction({ action: 'deleteRecord', data: { id, type } });  
         }  
   
         async function addAccountCloud() {  
@@ -1203,6 +1145,7 @@
   
             toggleModal('account-modal');  
             saveData();  
+            await pushAction({ action: 'updateAccounts', data: window.state.accounts });  
         }  
   
         function openEditAccountModal(name) {  
@@ -1229,6 +1172,7 @@
                 saveData();   
                 renderAccountList();   
                 toggleModal('edit-account-modal');  
+                await pushAction({ action: 'updateAccounts', data: window.state.accounts });  
             }  
         }  
   
@@ -1254,6 +1198,7 @@
             window.state.accounts = window.state.accounts.filter(a => a.name !== name);  
             renderAccountList();  
             saveData();  
+            await pushAction({ action: 'updateAccounts', data: window.state.accounts });  
         }  
   
         async function addFixedExpense() {  
@@ -1272,6 +1217,8 @@
               
             toggleModal('fixed-expense-modal');  
             saveData();  
+            await pushAction({ action: 'updateFixedExpenses', data: window.state.fixedExpenses });  
+              
             nameEl.value = '';  
             amtEl.value = '';  
         }  
@@ -1279,11 +1226,13 @@
         async function deleteFixedExpense(id) {  
             window.state.fixedExpenses = window.state.fixedExpenses.filter(f => f.id !== id);  
             saveData();  
+            await pushAction({ action: 'updateFixedExpenses', data: window.state.fixedExpenses });  
         }  
   
         async function updateGlobalSettings() {  
             const salaryEl = document.getElementById('salary');  
             const goalEl = document.getElementById('savings-goal');  
+            const pwdEl = document.getElementById('app-password');  
               
             const necEl = document.getElementById('jar-pct-nec');  
             const ffaEl = document.getElementById('jar-pct-ffa');  
@@ -1292,6 +1241,7 @@
               
             if (salaryEl) window.state.settings.salary = parseFloat(salaryEl.value) || 0;  
             if (goalEl) window.state.settings.savingsGoal = parseFloat(goalEl.value) || 0;  
+            if (pwdEl) window.state.settings.password = pwdEl.value.trim() || "1234";  
               
             if (!window.state.settings.jars) window.state.settings.jars = {};  
             if (necEl) window.state.settings.jars.NEC = parseFloat(necEl.value) || 0;  
@@ -1300,140 +1250,14 @@
             if (playEl) window.state.settings.jars.PLAY = parseFloat(playEl.value) || 0;  
               
             saveData();  
-        }  
-
-        function saveTripRates() {
-            const currId = window.state.currentLedgerId;
-            if (!window.state.tripRatesMap[currId]) window.state.tripRatesMap[currId] = {};
-            
-            ['JPY', 'USD', 'KRW', 'EUR', 'HKD', 'THB'].forEach(curr => {
-                const el = document.getElementById(`rate-${curr}`);
-                if (el) {
-                    const val = parseFloat(el.value);
-                    if (!isNaN(val) && val > 0) {
-                        window.state.tripRatesMap[currId][curr] = val;
-                    }
-                }
-            });
-            saveData();
-            alert("匯率設定已儲存！");
+            await pushAction({ action: 'updateSettings', data: window.state.settings });  
         }  
   
         function updateUI() {  
             const rate = window.state.settings.usdRate || 32.5;  
+            const apiRates = window.state.settings.rates;   
             const jars = window.state.settings.jars || { NEC: 60, FFA: 15, INT: 15, PLAY: 10 };  
               
-            // 渲染頂部帳本下拉式選單
-            const ledgerDropdown = document.getElementById('ledger-dropdown-select');
-            if (ledgerDropdown) {
-                ledgerDropdown.innerHTML = window.state.ledgers.map(l => {
-                    const isSelected = l.id === window.state.currentLedgerId;
-                    const icon = l.type === 'trip' ? '✈️ ' : '💰 ';
-                    return `<option value="${l.id}" ${isSelected ? 'selected' : ''}>${icon}${l.name}</option>`;
-                }).join('');
-            }
-
-            const currLedgerId = window.state.currentLedgerId;
-            const currentLedger = window.state.ledgers.find(l => l.id === currLedgerId) || window.state.ledgers[0];
-            const isTripLedger = currentLedger.type === 'trip';
-
-            const standardView = document.getElementById('ledger-view-standard');
-            const tripView = document.getElementById('ledger-view-trip');
-            const titleEl = document.getElementById('current-ledger-title');
-
-            if (titleEl) titleEl.innerText = currentLedger.name;
-
-            if (isTripLedger) {
-                if (standardView) standardView.classList.add('hidden');
-                if (tripView) tripView.classList.remove('hidden');
-
-                if (!window.state.tripRatesMap[currLedgerId]) {
-                    window.state.tripRatesMap[currLedgerId] = { JPY: 0.21, USD: 32.5, KRW: 0.024, EUR: 35.0, HKD: 4.15, THB: 0.95, TWD: 1.0 };
-                }
-                const rates = window.state.tripRatesMap[currLedgerId];
-                const ratesContainer = document.getElementById('trip-rates-container');
-                if (ratesContainer) {
-                    ratesContainer.innerHTML = ['JPY', 'USD', 'KRW', 'EUR', 'HKD', 'THB'].map(curr => `
-                        <div class="flex flex-col bg-stone-50 p-2 rounded-xl border border-stone-100">
-                            <label class="text-[8px] font-bold text-stone-400 mb-0.5">${curr} 兌 TWD</label>
-                            <input type="number" id="rate-${curr}" value="${rates[curr] || 1}" step="0.0001" class="w-full bg-white p-1.5 rounded text-xs font-bold text-stone-700 border border-stone-200">
-                        </div>
-                    `).join('');
-                }
-
-                const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');
-                const tripAccountEl = document.getElementById('trip-item-account');
-                if (tripAccountEl) tripAccountEl.innerHTML = accOptions;
-
-                const tripRecords = window.state.tripRecordsMap[currLedgerId] || [];
-                let totalTripTWD = 0;
-                tripRecords.forEach(t => {
-                    const curr = t.currency || 'TWD';
-                    const multiplier = rates[curr] || 1.0;
-                    totalTripTWD += t.amount * multiplier;
-                });
-
-                const tripTotalDisp = document.getElementById('trip-total-twd-display');
-                if (tripTotalDisp) tripTotalDisp.innerHTML = `$${Math.round(totalTripTWD).toLocaleString()} <span class="text-sm font-bold">TWD</span>`;
-                
-                const countBadge = document.getElementById('trip-record-count-badge');
-                if (countBadge) countBadge.innerText = `共 ${tripRecords.length} 筆消費紀錄`;
-
-                const nameBadge = document.getElementById('trip-ledger-name-badge');
-                if (nameBadge) nameBadge.innerText = currentLedger.name;
-
-                const categoryTotals = {};
-                tripRecords.forEach(t => {
-                    const cat = t.category || '其他';
-                    const curr = t.currency || 'TWD';
-                    const twd = t.amount * (rates[curr] || 1.0);
-                    categoryTotals[cat] = (categoryTotals[cat] || 0) + twd;
-                });
-
-                const pillsEl = document.getElementById('trip-category-summary-pills');
-                if (pillsEl) {
-                    pillsEl.innerHTML = Object.entries(categoryTotals).map(([cat, amt]) => `
-                        <span class="bg-[#f3ede6] text-[#8c7e6e] px-2.5 py-1 rounded-full text-[10px] font-bold mr-1.5 mb-1 inline-block">${cat}: $${Math.round(amt).toLocaleString()}</span>
-                    `).join('');
-                }
-
-                const tripListEl = document.getElementById('trip-records-container');
-                if (tripListEl) {
-                    tripListEl.innerHTML = tripRecords.map(t => {
-                        const curr = t.currency || 'TWD';
-                        const multiplier = rates[curr] || 1.0;
-                        const twdEquiv = t.amount * multiplier;
-
-                        return `
-                        <div class="bg-white p-4 rounded-2xl border border-[#e5ddd3] relative group shadow-sm flex flex-col justify-between">  
-                            <div>
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <span class="text-xs font-bold text-stone-700">${t.tripName}</span>
-                                        <span class="text-[9px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded ml-2">${t.category}</span>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <button onclick="openEditModal(${t.id}, 'trip')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold">✎</button>  
-                                        <button onclick="deleteRecord(${t.id}, 'trip')" class="text-stone-300 hover:text-red-400 text-xs">✕</button>  
-                                    </div>
-                                </div>
-                                <div class="text-[9px] text-stone-400 mb-3">${t.date} · 支付帳戶: ${t.accountName}</div>
-                            </div>
-                            <div class="flex justify-between items-end border-t border-stone-50 pt-2">
-                                <span class="text-[11px] font-bold text-stone-500">${curr} ${t.amount.toLocaleString()}</span>
-                                <span class="text-sm font-black text-[#8c7e6e]">≈ NT$${Math.round(twdEquiv).toLocaleString()}</span>
-                            </div>
-                        </div>  
-                        `;
-                    }).join('');
-                }
-
-                return;
-            } else {
-                if (standardView) standardView.classList.remove('hidden');
-                if (tripView) tripView.classList.add('hidden');
-            }
-
             const totalPct = (jars.NEC || 0) + (jars.FFA || 0) + (jars.INT || 0) + (jars.PLAY || 0);  
             const warningEl = document.getElementById('jar-total-warning');  
             if (warningEl) {  
@@ -1459,9 +1283,8 @@
             let totalExtraTWD = 0;   
             let jarSpendTWD = { NEC:0, FFA:0, LTSS:0, INT:0, PLAY:0 };  
   
-            const records = window.state.recordsMap[currLedgerId] || [];
-            records.forEach(r => {  
-                const currency = curMap[r.accountName] || 'TWD';  
+            window.state.records.forEach(r => {  
+                const currency = curMap[r.accountName];  
                 const amtTWD = currency === 'USD' ? r.amount * rate : r.amount;  
                   
                 if (r.type === 'income' && balances.hasOwnProperty(r.accountName)) {   
@@ -1474,12 +1297,16 @@
                     } else if (r.adjType === 'minus' && balances.hasOwnProperty(r.accountName)) {  
                         balances[r.accountName] -= r.amount;  
                     } else if (r.adjType === 'transfer') {  
-                        if (balances.hasOwnProperty(r.accountName)) balances[r.accountName] -= r.amount;  
-                        if (r.targetAccountName && balances.hasOwnProperty(r.targetAccountName)) balances[r.targetAccountName] += r.amount;  
+                        if (balances.hasOwnProperty(r.accountName)) {  
+                            balances[r.accountName] -= r.amount;  
+                        }  
+                        if (r.targetAccountName && balances.hasOwnProperty(r.targetAccountName)) {  
+                            balances[r.targetAccountName] += r.amount;  
+                        }  
                     }  
                 }  
   
-                if (r.date && r.date.startsWith(viewMonth)) {  
+                if (r.date.startsWith(viewMonth)) {  
                     if (r.type === 'income') {  
                         totalIncomeTWD += amtTWD;  
                     } else if (r.type === 'expense') {  
@@ -1493,11 +1320,31 @@
             });  
   
             window.state.fixedExpenses.forEach(f => {  
-                const currency = curMap[f.accountName] || 'TWD';  
+                const currency = curMap[f.accountName];  
                 const amtTWD = currency === 'USD' ? f.amount * rate : f.amount;  
+                  
                 if (balances.hasOwnProperty(f.accountName)) balances[f.accountName] -= f.amount;  
+                  
                 totalExpenseTWD += amtTWD;  
                 jarSpendTWD.NEC += amtTWD;   
+            });  
+  
+            let totalTripTWD = 0;  
+            window.state.tripRecords.forEach(t => {  
+                const tripCurr = t.currency || 'TWD';  
+                let amtTWD = t.amount;  
+  
+                if (apiRates && apiRates[tripCurr] && apiRates.TWD) {  
+                    amtTWD = (t.amount / apiRates[tripCurr]) * apiRates.TWD;  
+                } else {  
+                    if (tripCurr === 'USD') {  
+                        amtTWD = t.amount * rate;  
+                    }  
+                }  
+  
+                if (t.date.startsWith(viewMonth)) {  
+                    totalTripTWD += amtTWD;  
+                }  
             });  
   
             let totalAssetsTWD = 0;  
@@ -1506,8 +1353,11 @@
                 accountsContainer.innerHTML = window.state.accounts.map(acc => {  
                     const amt = balances[acc.name] || 0;  
                     const twd = acc.currency === 'USD' ? amt * rate : amt;  
-                    if (!acc.excludeFromTotal) totalAssetsTWD += twd;  
-
+                      
+                    if (!acc.excludeFromTotal) {  
+                        totalAssetsTWD += twd;  
+                    }  
+  
                     return `  
                         <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 relative">  
                             ${acc.excludeFromTotal ? `<span class="absolute top-3 right-3 text-[8px] bg-stone-200 text-stone-400 px-1.5 py-0.5 rounded shadow-sm">不計入</span>` : ''}  
@@ -1574,7 +1424,7 @@
             if (monthlyTotalEl) monthlyTotalEl.innerText = `$${Math.round(consumable).toLocaleString()}`;  
   
             const accOptions = window.state.accounts.map(a => `<option value="${a.name}">${a.name} (${a.currency})</option>`).join('');  
-            ['exp-account', 'inc-account', 'fixed-exp-account', 'adj-account', 'extra-account', 'adj-target-account'].forEach(id => {  
+            ['exp-account', 'inc-account', 'trip-item-account', 'fixed-exp-account', 'adj-account', 'extra-account', 'adj-target-account'].forEach(id => {  
                 const el = document.getElementById(id);  
                 if(el) el.innerHTML = accOptions;  
             });  
@@ -1601,9 +1451,16 @@
                 if(el) el.innerHTML = paymentOptions;  
             });  
   
-            const filteredRecords = records.filter(r => r.date && r.date.startsWith(viewMonth));  
+            const filteredRecords = window.state.records.filter(r => r.date.startsWith(viewMonth));  
+            const filteredTrips = window.state.tripRecords.filter(t => t.date.startsWith(viewMonth));  
   
-            const jarNames = { NEC: '生活必要', FFA: '財務自由', LTSS: '長期儲蓄', INT: '興趣開支', PLAY: '享樂休閒' };  
+            const jarNames = {   
+                NEC: '生活必要',   
+                FFA: '財務自由',   
+                LTSS: '長期儲蓄',   
+                INT: '興趣開支',   
+                PLAY: '享樂休閒'   
+            };  
   
             const renderRec = (r) => `  
                 <div class="flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 group">  
@@ -1656,6 +1513,39 @@
                         </div>  
                     </div>  
                     `;  
+                }).join('');  
+            }  
+  
+            const tripSummaryEl = document.getElementById('trip-total-summary');  
+            if (tripSummaryEl) tripSummaryEl.innerText = `當月旅行支出: $${Math.round(totalTripTWD).toLocaleString()}`;  
+              
+            const tripListEl = document.getElementById('trip-records-list');  
+            if (tripListEl) {  
+                tripListEl.innerHTML = filteredTrips.map(t => {  
+                    const tripCurr = t.currency || 'TWD';  
+                    let displayAmt = `${tripCurr} ${t.amount.toLocaleString()}`;  
+                    let subTextHtml = '';  
+                      
+                    if (tripCurr !== 'TWD' && apiRates && apiRates[tripCurr]) {  
+                        const twdEquiv = (t.amount / apiRates[tripCurr]) * apiRates.TWD;  
+                        subTextHtml = `<span class="text-[9px] text-stone-400 font-normal ml-1 whitespace-nowrap">(約 NT$${Math.round(twdEquiv).toLocaleString()})</span>`;  
+                    } else if (tripCurr === 'TWD') {  
+                        displayAmt = `$${t.amount.toLocaleString()}`;   
+                    }  
+  
+                    return `  
+                    <div class="bg-white p-4 rounded-2xl border border-[#e5ddd3] relative group shadow-sm">  
+                        <div class="absolute top-2 right-2 flex gap-3 opacity-0 group-hover:opacity-100 transition">  
+                            <button onclick="openEditModal(${t.id}, 'trip')" class="text-stone-400 hover:text-[#b8a390] text-xs font-bold">✎</button>  
+                            <button onclick="deleteRecord(${t.id}, 'trip')" class="text-stone-300 hover:text-red-400 text-xs">✕</button>  
+                        </div>  
+                        <div class="text-[10px] font-bold text-stone-600 mb-1 pr-12">${t.tripName} (${t.category})</div>  
+                        <div class="flex justify-between items-end flex-wrap">  
+                            <span class="text-[8px] text-stone-300">${t.date} · 帳戶紀錄：${t.accountName} (不扣除餘額)</span>  
+                            <span class="text-sm font-black text-[#8c7e6e] mt-1">${displayAmt} ${subTextHtml}</span>  
+                        </div>  
+                    </div>  
+                    `  
                 }).join('');  
             }  
   
@@ -1726,7 +1616,7 @@
         }  
   
         function switchTab(tab) {  
-            ['expense', 'income', 'extra', 'adjustment', 'stats'].forEach(t => {  
+            ['expense', 'income', 'trip', 'extra', 'adjustment', 'stats'].forEach(t => {  
                 const formEl = document.getElementById(`form-${t}`);  
                 if (formEl) formEl.classList.toggle('hidden', t !== tab);  
                   
@@ -1743,6 +1633,7 @@
             });  
         }  
   
+        window.checkPassword = checkPassword;  
         window.switchTab = switchTab;  
         window.deleteRecord = deleteRecord;  
         window.openEditModal = openEditModal;   
@@ -1765,14 +1656,10 @@
         window.confirmMonthSelection = confirmMonthSelection;  
         window.updateGlobalSettings = updateGlobalSettings;  
         window.syncWithSheets = syncWithSheets;  
+        window.togglePasswordVisibility = togglePasswordVisibility;  
         window.toggleTransferAccount = toggleTransferAccount; 
         window.toggleEditTransferAccount = toggleEditTransferAccount; 
         window.saveData = saveData;  
-        window.switchLedger = switchLedger;
-        window.createNewLedger = createNewLedger;
-        window.deleteCurrentLedger = deleteCurrentLedger;
-        window.saveTripRates = saveTripRates;
-        window.fetchLiveRatesForTrip = fetchLiveRatesForTrip;
     </script>  
 </body>  
 </html>
