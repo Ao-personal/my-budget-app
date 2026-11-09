@@ -1506,8 +1506,7 @@ return `
 // 💡 渲染被選中專案的明細與總花費
 const tripSummaryEl = document.getElementById('trip-total-summary');
 if (tripSummaryEl) {
-    let pName = activeTripProjectId ? tripProjects.find(p => p.id === activeTripProjectId)?.name : '';
-    tripSummaryEl.innerText = pName ? `${pName} 總花費: $${Math.round(totalTripTWD).toLocaleString()}` : `專案總計: $0`;
+    tripSummaryEl.innerText = `專案總計: $${Math.round(totalTripTWD).toLocaleString()}`;
 }
 
 const tripListEl = document.getElementById('trip-records-list');
